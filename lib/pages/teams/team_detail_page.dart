@@ -9,6 +9,73 @@ import 'package:intl/intl.dart';
 import '../../services/team_service.dart';
 import '../game_detail_page.dart';
 
+// Helper function to delete team
+Future<void> _deleteTeam(
+  BuildContext context,
+  WidgetRef ref,
+  Team team,
+  String teamId,
+) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder:
+        (context) => AlertDialog(
+          title: const Text('Delete Team'),
+          content: Text(
+            'Are you sure you want to delete "${team.name}"?\n\n'
+            '⚠️ WARNING: This will permanently delete:\n'
+            '• All scheduled games for this team\n'
+            '• All attendance records and check-ins\n'
+            '• All fee records and payment history\n'
+            '• All team member records\n'
+            '• All pending invitations\n\n'
+            'This action cannot be undone!',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('Delete'),
+            ),
+          ],
+        ),
+  );
+
+  if (confirmed != true) return;
+
+  try {
+    final teamService = TeamService();
+    await teamService.deleteTeam(team.id);
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Team deleted successfully'),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      // Refresh teams list and navigate back
+      ref.invalidate(teamProvider(teamId));
+      ref.invalidate(userTeamsProvider);
+      Navigator.of(context).pop(true); // Return true to indicate deletion
+    }
+  } catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error deleting team: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+}
+
 class TeamDetailPage extends ConsumerWidget {
   final String teamId;
 
@@ -46,23 +113,49 @@ class TeamDetailPage extends ConsumerWidget {
             appBar: AppBar(
               title: Text(team.name),
               backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.add),
+                  onPressed: () async {
+                    final result = await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => GameSchedulePage(teamId: teamId),
+                      ),
+                    );
+                    if (result == true) {
+                      // Refresh team data if game was created
+                      ref.invalidate(teamProvider(teamId));
+                    }
+                  },
+                  tooltip: 'Schedule Game',
+                ),
+                PopupMenuButton<String>(
+                  onSelected: (value) {
+                    if (value == 'delete') {
+                      _deleteTeam(context, ref, team, teamId);
+                    }
+                  },
+                  itemBuilder:
+                      (context) => [
+                        const PopupMenuItem(
+                          value: 'delete',
+                          child: Row(
+                            children: [
+                              Icon(Icons.delete, color: Colors.red),
+                              SizedBox(width: 8),
+                              Text(
+                                'Delete Team',
+                                style: TextStyle(color: Colors.red),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                ),
+              ],
             ),
-            floatingActionButton: FloatingActionButton.extended(
-              onPressed: () async {
-                final result = await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => GameSchedulePage(teamId: teamId),
-                  ),
-                );
-                if (result == true) {
-                  // Refresh team data if game was created
-                  ref.invalidate(teamProvider(teamId));
-                }
-              },
-              icon: const Icon(Icons.add),
-              label: const Text('Schedule Game'),
-            ),
+
             body: SingleChildScrollView(
               padding: const EdgeInsets.all(16.0),
               child: Column(

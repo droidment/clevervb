@@ -269,9 +269,15 @@ class GameService {
         throw Exception('User must be authenticated to delete a game');
       }
 
+      // Get the st_users.id for the current user
+      final currentUserId = await _authService.getCurrentUserId();
+      if (currentUserId == null) {
+        throw Exception('Could not find user profile');
+      }
+
       // Check if user is organizer
       final game = await getGame(gameId);
-      if (game.organizerId != user.id) {
+      if (game.organizerId != currentUserId) {
         throw Exception('Only the game organizer can delete this game');
       }
 
@@ -569,6 +575,33 @@ class GameService {
       _logger.i('RSVP removed successfully');
     } catch (e) {
       _logger.e('Error removing RSVP: $e');
+      rethrow;
+    }
+  }
+
+  /// Get games organized by a specific user
+  Future<List<Game>> getOrganizerGames(String organizerId) async {
+    try {
+      _logger.i('Fetching games for organizer: $organizerId');
+
+      final response = await _supabase
+          .from('st_games')
+          .select('''
+            *,
+            st_users!st_games_organizer_id_fkey(full_name, avatar_url),
+            st_teams!st_games_team_id_fkey(name, sport_type),
+            rsvp_count:st_rsvps(count),
+            attendance_count:st_attendances(count)
+          ''')
+          .eq('organizer_id', organizerId)
+          .order('scheduled_at', ascending: false);
+
+      final games = response.map((game) => _mapGameFromResponse(game)).toList();
+
+      _logger.i('Found ${games.length} games for organizer');
+      return games;
+    } catch (e) {
+      _logger.e('Error fetching organizer games: $e');
       rethrow;
     }
   }

@@ -155,8 +155,15 @@ class TeamService {
         throw Exception('User must be authenticated to delete team');
       }
 
+      // Get the st_users.id for the current user
+      final authService = AuthService();
+      final currentUserId = await authService.getCurrentUserId();
+      if (currentUserId == null) {
+        throw Exception('Could not find user profile');
+      }
+
       // Check if user is organizer
-      final isOrganizer = await _isTeamOrganizer(teamId, user.id);
+      final isOrganizer = await _isTeamOrganizer(teamId, currentUserId);
       if (!isOrganizer) {
         throw Exception('Only team organizers can delete teams');
       }

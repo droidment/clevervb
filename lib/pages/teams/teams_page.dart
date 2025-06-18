@@ -54,11 +54,6 @@ class _TeamsPageState extends ConsumerState<TeamsPage>
         controller: _tabController,
         children: [_MyTeamsTab(), const DiscoverTeamsPage()],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _navigateToCreateTeam(),
-        tooltip: 'Create Team',
-        child: const Icon(Icons.add),
-      ),
     );
   }
 
