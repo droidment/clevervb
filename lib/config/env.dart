@@ -17,10 +17,14 @@ class Env {
   static const String tablePrefix = 'st_';
   static const bool enableLogging = true;
 
-  // Google OAuth Configuration (to be filled when implementing Google Auth)
-  static const String? googleWebClientId = null;
-  static const String? googleIOSClientId = null;
-  static const String? googleAndroidClientId = null;
+  // Google OAuth Configuration
+  // Replace these with your actual Google OAuth client IDs from Google Cloud Console
+  static const String? googleWebClientId =
+      '743003482567-4ooqr455lbfrn8vjubrrhmnqdo388n6k.apps.googleusercontent.com';
+  static const String? googleIOSClientId =
+      'YOUR_IOS_CLIENT_ID.apps.googleusercontent.com';
+  static const String? googleAndroidClientId =
+      '743003482567-grjmdppd3sbbpkn9uoc6lcr7ro0tvdp0.apps.googleusercontent.com';
 
   // WhatsApp Configuration (for future implementation)
   static const String? whatsappBusinessPhoneId = null;

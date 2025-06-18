@@ -170,7 +170,7 @@ class _TeamProviderElement extends AutoDisposeFutureProviderElement<Team>
   String get teamId => (origin as TeamProvider).teamId;
 }
 
-String _$userTeamsHash() => r'673bf51227258d2ec5ea8b2537b72e28cddd9643';
+String _$userTeamsHash() => r'fa91c8cbcd4af640f71f5af815560348ae0c4d52';
 
 /// Provider to get user's teams
 ///
@@ -927,7 +927,7 @@ class _InvitationProviderElement
   String get invitationId => (origin as InvitationProvider).invitationId;
 }
 
-String _$teamNotifierHash() => r'682eb5faa8e54390162baeef3baa83ffb85c8e9b';
+String _$teamNotifierHash() => r'98b24a365f1e22dffb64993886ae12d1d004886a';
 
 /// State notifier for team operations
 ///

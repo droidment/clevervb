@@ -94,7 +94,7 @@ class _DiscoveryPageState extends ConsumerState<DiscoveryPage> {
         }
       }
     } catch (e) {
-      print('Error getting location: $e');
+      debugPrint('Error getting location: $e');
     } finally {
       setState(() => _isLoadingLocation = false);
     }
@@ -767,3 +767,4 @@ extension StringExtension on String {
     return "${this[0].toUpperCase()}${substring(1)}";
   }
 }
+ 

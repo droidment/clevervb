@@ -14,11 +14,10 @@ class AuthService {
 
   // Initialize the service
   Future<void> initialize() async {
-    // Initialize Google Sign In
+    // Initialize Google Sign In with proper client ID for web platform
     _googleSignIn = GoogleSignIn(
       scopes: ['email', 'profile'],
-      // Add your Google OAuth client ID here when you get it from Google Console
-      // This will be configured in the next step
+      clientId: Env.googleWebClientId, // Use web client ID for web platform
     );
 
     _logger.i('AuthService initialized');
@@ -33,7 +32,25 @@ class AuthService {
   // Get auth stream for state changes
   Stream<AuthState> get authStateChanges => _supabase.auth.onAuthStateChange;
 
-  // Sign in with Google
+  // Sign in with Google using Supabase OAuth (better for web)
+  Future<bool> signInWithGoogleOAuth() async {
+    try {
+      _logger.i('Starting Google OAuth sign-in process');
+
+      final response = await _supabase.auth.signInWithOAuth(
+        OAuthProvider.google,
+        redirectTo: 'http://localhost:3000', // For local development
+      );
+
+      _logger.i('Google OAuth initiated successfully');
+      return response;
+    } catch (e) {
+      _logger.e('Google OAuth sign-in failed: $e');
+      rethrow;
+    }
+  }
+
+  // Sign in with Google (fallback method for mobile)
   Future<AuthResponse> signInWithGoogle() async {
     try {
       _logger.i('Starting Google sign-in process');
@@ -105,12 +122,12 @@ class AuthService {
   // Check if user profile exists in our database, create if not
   Future<void> _checkAndCreateUserProfile(User user) async {
     try {
-      // Check if user exists in st_users table
+      // Check if user exists in st_users table by auth_user_id
       final response =
           await _supabase
               .from('st_users')
               .select('id')
-              .eq('id', user.id)
+              .eq('auth_user_id', user.id)
               .maybeSingle();
 
       if (response == null) {
@@ -118,7 +135,7 @@ class AuthService {
         _logger.i('Creating new user profile for: ${user.email}');
 
         await _supabase.from('st_users').insert({
-          'id': user.id,
+          'auth_user_id': user.id, // Link to auth.users.id
           'email': user.email!,
           'full_name':
               user.userMetadata?['full_name'] ??
@@ -198,7 +215,7 @@ class AuthService {
           await _supabase
               .from('st_users')
               .select('is_profile_complete, date_of_birth')
-              .eq('id', user.id)
+              .eq('auth_user_id', user.id)
               .maybeSingle();
 
       if (response == null) return false;
@@ -222,12 +239,44 @@ class AuthService {
           await _supabase
               .from('st_users')
               .select('*')
-              .eq('id', user.id)
+              .eq('auth_user_id', user.id)
               .maybeSingle();
 
       return response;
     } catch (e) {
       _logger.e('Error fetching user profile: $e');
+      return null;
+    }
+  }
+
+  // Get the st_users.id for the current authenticated user
+  Future<String?> getCurrentUserId() async {
+    try {
+      final user = currentUser;
+      if (user == null) {
+        _logger.w('No current user found');
+        return null;
+      }
+
+      _logger.i('Getting st_users.id for auth user: ${user.id}');
+
+      final response =
+          await _supabase
+              .from('st_users')
+              .select('id')
+              .eq('auth_user_id', user.id)
+              .maybeSingle();
+
+      if (response == null) {
+        _logger.w('No st_users record found for auth_user_id: ${user.id}');
+        return null;
+      }
+
+      final userId = response['id'];
+      _logger.i('Found st_users.id: $userId');
+      return userId;
+    } catch (e) {
+      _logger.e('Error fetching user ID: $e');
       return null;
     }
   }
@@ -277,7 +326,10 @@ class AuthService {
         'updated_at': DateTime.now().toIso8601String(),
       };
 
-      await _supabase.from('st_users').update(updateData).eq('id', user.id);
+      await _supabase
+          .from('st_users')
+          .update(updateData)
+          .eq('auth_user_id', user.id);
 
       _logger.i('User profile updated successfully');
     } catch (e) {

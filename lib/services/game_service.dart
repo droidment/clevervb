@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 import '../models/game.dart';
 import '../config/env.dart';
+import 'auth_service.dart';
 
 class GameService {
   static final _instance = GameService._internal();
@@ -12,8 +13,61 @@ class GameService {
   final _logger = Logger();
   final _supabase = Supabase.instance.client;
   final _uuid = const Uuid();
+  final _authService = AuthService();
 
   // ==================== GAME CRUD OPERATIONS ====================
+
+  /// Create a new game (TEST VERSION - bypasses RLS for debugging)
+  Future<void> testCreateGameBypassRLS({
+    required String teamId,
+    required String title,
+  }) async {
+    try {
+      final user = _supabase.auth.currentUser;
+      if (user == null) {
+        throw Exception('User must be authenticated to create a game');
+      }
+
+      // Get the st_users.id for the current user
+      final currentUserId = await _authService.getCurrentUserId();
+      if (currentUserId == null) {
+        throw Exception('Could not find user profile');
+      }
+
+      _logger.i('Testing game creation with direct SQL - bypassing RLS');
+
+      final gameId = _uuid.v4();
+      final now = DateTime.now();
+      final scheduledAt = now.add(const Duration(days: 1));
+
+      // Use RPC to bypass RLS for testing
+      await _supabase.rpc(
+        'create_game_test',
+        params: {
+          'p_game_id': gameId,
+          'p_team_id': teamId,
+          'p_organizer_id': currentUserId,
+          'p_title': title,
+          'p_sport': 'volleyball',
+          'p_venue': 'Test Venue',
+          'p_scheduled_at': scheduledAt.toIso8601String(),
+          'p_duration_minutes': 120,
+          'p_max_players': 12,
+          'p_is_public': false,
+          'p_requires_rsvp': true,
+          'p_auto_confirm_rsvp': true,
+          'p_weather_dependent': false,
+          'p_created_at': now.toIso8601String(),
+          'p_updated_at': now.toIso8601String(),
+        },
+      );
+
+      _logger.i('Test game created successfully: $gameId');
+    } catch (e) {
+      _logger.e('Error creating test game: $e');
+      rethrow;
+    }
+  }
 
   /// Create a new game
   Future<Game> createGame({
@@ -43,6 +97,12 @@ class GameService {
         throw Exception('User must be authenticated to create a game');
       }
 
+      // Get the st_users.id for the current user
+      final currentUserId = await _authService.getCurrentUserId();
+      if (currentUserId == null) {
+        throw Exception('Could not find user profile');
+      }
+
       _logger.i('Creating game: $title');
 
       final gameId = _uuid.v4();
@@ -55,7 +115,7 @@ class GameService {
       await _supabase.from('st_games').insert({
         'id': gameId,
         'team_id': teamId,
-        'organizer_id': user.id,
+        'organizer_id': currentUserId, // Use st_users.id instead of auth.uid()
         'title': title.trim(),
         'description': description?.trim(),
         'sport': sport.toLowerCase(),
@@ -141,8 +201,9 @@ class GameService {
       }
 
       // Check if user is organizer
+      final currentUserId = await _authService.getCurrentUserId();
       final game = await getGame(gameId);
-      if (game.organizerId != user.id) {
+      if (game.organizerId != currentUserId) {
         throw Exception('Only the game organizer can update this game');
       }
 
@@ -294,6 +355,44 @@ class GameService {
     }
   }
 
+  /// Get games the user has RSVP'd to
+  Future<List<Game>> getUserRsvpedGames(
+    String userId, {
+    bool upcomingOnly = false,
+    int limit = 50,
+  }) async {
+    try {
+      var query = _supabase
+          .from('st_games')
+          .select('''
+            *,
+            st_users!st_games_organizer_id_fkey(full_name, avatar_url),
+            st_teams(name, sport_type),
+            st_rsvps!inner(response, guest_count),
+            rsvp_count:st_rsvps(count),
+            attendance_count:st_attendances(count)
+          ''')
+          .eq('st_rsvps.user_id', userId)
+          .eq(
+            'st_rsvps.response',
+            'yes',
+          ); // Only get games user RSVP'd "yes" to
+
+      if (upcomingOnly) {
+        query = query.gte('scheduled_at', DateTime.now().toIso8601String());
+      }
+
+      final response = await query
+          .order('scheduled_at', ascending: !upcomingOnly)
+          .limit(limit);
+
+      return response.map((game) => _mapGameFromResponse(game)).toList();
+    } catch (e) {
+      _logger.e('Error fetching user RSVP\'d games: $e');
+      rethrow;
+    }
+  }
+
   /// Discover public games
   Future<List<Game>> discoverGames({
     double? latitude,
@@ -362,6 +461,12 @@ class GameService {
         throw Exception('User must be authenticated to RSVP');
       }
 
+      // Get the st_users.id for the current user
+      final currentUserId = await _authService.getCurrentUserId();
+      if (currentUserId == null) {
+        throw Exception('Could not find user profile');
+      }
+
       final game = await getGame(gameId);
 
       // Check if RSVP is still open
@@ -382,12 +487,12 @@ class GameService {
       // Insert or update RSVP
       await _supabase.from('st_rsvps').upsert({
         'game_id': gameId,
-        'user_id': user.id,
+        'user_id': currentUserId, // Use st_users.id instead of auth.uid()
         'response': response.name,
         'guest_count': guestCount,
         'created_at': DateTime.now().toIso8601String(),
         'updated_at': DateTime.now().toIso8601String(),
-      });
+      }, onConflict: 'game_id,user_id');
 
       _logger.i('RSVP submitted successfully');
     } catch (e) {
@@ -444,13 +549,22 @@ class GameService {
         throw Exception('User must be authenticated to remove RSVP');
       }
 
+      // Get the st_users.id for the current user
+      final currentUserId = await _authService.getCurrentUserId();
+      if (currentUserId == null) {
+        throw Exception('Could not find user profile');
+      }
+
       _logger.i('Removing RSVP for game: $gameId');
 
       await _supabase
           .from('st_rsvps')
           .delete()
           .eq('game_id', gameId)
-          .eq('user_id', user.id);
+          .eq(
+            'user_id',
+            currentUserId,
+          ); // Use st_users.id instead of auth.uid()
 
       _logger.i('RSVP removed successfully');
     } catch (e) {

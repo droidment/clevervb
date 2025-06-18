@@ -29,7 +29,11 @@ Future<List<Team>> userTeams(UserTeamsRef ref) async {
   final user = authService.currentUser;
   if (user == null) return [];
 
-  return teamService.getUserTeams(user.id);
+  // Get the st_users.id instead of auth.users.id
+  final userId = await authService.getCurrentUserId();
+  if (userId == null) return [];
+
+  return teamService.getUserTeams(userId);
 }
 
 /// Provider to search teams with filters
@@ -118,7 +122,7 @@ class TeamNotifier extends _$TeamNotifier {
         sportType: sportType,
         description: description,
         isPublic: isPublic,
-        maxMembers: maxMembers,
+        maxMembers: maxMembers ?? 8, // Use 8 as default if null
       );
 
       state = AsyncValue.data(team);

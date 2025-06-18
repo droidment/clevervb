@@ -183,7 +183,16 @@ class _EmptyTeamsView extends StatelessWidget {
                   width: 200,
                   child: OutlinedButton.icon(
                     onPressed: () {
-                      DefaultTabController.of(context).animateTo(1);
+                      try {
+                        DefaultTabController.of(context).animateTo(1);
+                      } catch (e) {
+                        // If TabController is not available, navigate manually
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => const DiscoverTeamsPage(),
+                          ),
+                        );
+                      }
                     },
                     icon: const Icon(Icons.explore),
                     label: const Text('Discover Teams'),

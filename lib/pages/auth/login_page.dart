@@ -166,23 +166,18 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
     try {
       final authService = AuthService();
-      final response = await authService.signInWithGoogle();
 
-      if (response.user != null && mounted) {
-        // Check if profile is complete
-        final isComplete = await authService.isProfileComplete();
+      // Use OAuth method for web (opens popup/redirect)
+      final success = await authService.signInWithGoogleOAuth();
 
-        if (isComplete) {
-          // Navigate to home page
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (context) => const HomePage()),
-          );
-        } else {
-          // Navigate to profile setup
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (context) => const ProfileSetupPage()),
-          );
-        }
+      if (success) {
+        // OAuth will handle the redirect, so we don't need to navigate here
+        // The auth state listener will handle navigation after successful auth
+        _showSuccessSnackBar(
+          'Authentication initiated. Please complete sign-in in the popup window.',
+        );
+      } else {
+        throw Exception('Failed to initiate Google sign-in');
       }
     } catch (e) {
       if (mounted) {
@@ -206,6 +201,23 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         action: SnackBarAction(
           label: 'Dismiss',
           textColor: Theme.of(context).colorScheme.onError,
+          onPressed: () {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          },
+        ),
+      ),
+    );
+  }
+
+  void _showSuccessSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        behavior: SnackBarBehavior.floating,
+        action: SnackBarAction(
+          label: 'Dismiss',
+          textColor: Theme.of(context).colorScheme.onPrimary,
           onPressed: () {
             ScaffoldMessenger.of(context).hideCurrentSnackBar();
           },

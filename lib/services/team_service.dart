@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 import '../models/team.dart';
 import '../config/env.dart';
+import 'auth_service.dart';
 
 class TeamService {
   static final _instance = TeamService._internal();
@@ -21,15 +22,24 @@ class TeamService {
     required String sportType,
     String? description,
     bool isPublic = true,
-    int? maxMembers,
+    int maxMembers = 8, // Default to 8 players to match database default
   }) async {
     try {
-      final user = _supabase.auth.currentUser;
-      if (user == null) {
+      _logger.i('Creating team: $name');
+      _logger.i('Checking authentication...');
+
+      final authService = AuthService();
+      final currentUser = authService.currentUser;
+      _logger.i(
+        'Current auth user: ${currentUser?.id} (${currentUser?.email})',
+      );
+
+      final userId = await authService.getCurrentUserId();
+      _logger.i('Retrieved st_users.id: $userId');
+
+      if (userId == null) {
         throw Exception('User must be authenticated to create a team');
       }
-
-      _logger.i('Creating team: $name');
 
       final teamId = _uuid.v4();
       final now = DateTime.now();
@@ -38,11 +48,13 @@ class TeamService {
       await _supabase.from('st_teams').insert({
         'id': teamId,
         'name': name.trim(),
-        'sport_type': sportType.toLowerCase(),
+        'sport': sportType.toLowerCase(), // Required NOT NULL column
+        'sport_type': sportType.toLowerCase(), // Compatibility column
         'description': description?.trim(),
-        'organizer_id': user.id,
+        'organizer_id': userId,
         'is_public': isPublic,
         'max_members': maxMembers,
+        'max_players': maxMembers, // Also set the original column
         'created_at': now.toIso8601String(),
         'updated_at': now.toIso8601String(),
       });
@@ -50,7 +62,7 @@ class TeamService {
       // Add organizer as team member
       await _supabase.from('st_team_members').insert({
         'team_id': teamId,
-        'user_id': user.id,
+        'user_id': userId,
         'role': 'organizer',
         'joined_at': now.toIso8601String(),
       });
@@ -119,7 +131,10 @@ class TeamService {
       if (name != null) updateData['name'] = name.trim();
       if (description != null) updateData['description'] = description.trim();
       if (isPublic != null) updateData['is_public'] = isPublic;
-      if (maxMembers != null) updateData['max_members'] = maxMembers;
+      if (maxMembers != null) {
+        updateData['max_members'] = maxMembers;
+        updateData['max_players'] = maxMembers; // Keep both columns in sync
+      }
 
       await _supabase.from('st_teams').update(updateData).eq('id', teamId);
 
@@ -189,13 +204,19 @@ class TeamService {
         throw Exception('User must be authenticated to join team');
       }
 
+      final authService = AuthService();
+      final currentUserId = await authService.getCurrentUserId();
+      if (currentUserId == null) {
+        throw Exception('Could not find user profile');
+      }
+
       // Check if already a member
       final existingMember =
           await _supabase
               .from('st_team_members')
               .select('team_id')
               .eq('team_id', teamId)
-              .eq('user_id', user.id)
+              .eq('user_id', currentUserId)
               .maybeSingle();
 
       if (existingMember != null) {
@@ -222,8 +243,8 @@ class TeamService {
       // Add member
       await _supabase.from('st_team_members').insert({
         'team_id': teamId,
-        'user_id': user.id,
-        'role': 'member',
+        'user_id': currentUserId, // Use st_users.id instead of auth.uid()
+        'role': 'player',
         'joined_at': DateTime.now().toIso8601String(),
       });
 
