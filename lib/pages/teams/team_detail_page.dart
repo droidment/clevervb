@@ -23,6 +23,7 @@ Future<void> _deleteTeam(
           title: const Text('Delete Team'),
           content: Text(
             'Are you sure you want to delete "${team.name}"?\n\n'
+            '🔒 Authorization: Only team creators or admins can delete teams\n\n'
             '⚠️ WARNING: This will permanently delete:\n'
             '• All scheduled games for this team\n'
             '• All attendance records and check-ins\n'

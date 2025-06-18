@@ -162,10 +162,10 @@ class TeamService {
         throw Exception('Could not find user profile');
       }
 
-      // Check if user is organizer
-      final isOrganizer = await _isTeamOrganizer(teamId, currentUserId);
-      if (!isOrganizer) {
-        throw Exception('Only team organizers can delete teams');
+      // Check if user can delete team (must be creator or admin)
+      final isAuthorized = await _isTeamOrganizer(teamId, currentUserId);
+      if (!isAuthorized) {
+        throw Exception('Only team creators or admins can delete teams');
       }
 
       _logger.i('Deleting team: $teamId');
@@ -526,21 +526,44 @@ class TeamService {
 
   // ==================== HELPER METHODS ====================
 
-  /// Check if user is team organizer
+  /// Check if user can delete team (team creator or admin)
   Future<bool> _isTeamOrganizer(String teamId, String userId) async {
     try {
-      final response =
+      // First check if user is the team creator (organizer_id in st_teams table)
+      final teamResponse =
+          await _supabase
+              .from('st_teams')
+              .select('organizer_id')
+              .eq('id', teamId)
+              .eq('organizer_id', userId)
+              .maybeSingle();
+
+      if (teamResponse != null) {
+        _logger.i('User is team creator - deletion authorized');
+        return true;
+      }
+
+      // If not creator, check if user has organizer/admin role in team members
+      final memberResponse =
           await _supabase
               .from('st_team_members')
               .select('role')
               .eq('team_id', teamId)
               .eq('user_id', userId)
-              .eq('role', 'organizer')
+              .inFilter('role', ['organizer', 'admin'])
               .maybeSingle();
 
-      return response != null;
+      if (memberResponse != null) {
+        _logger.i(
+          'User has ${memberResponse['role']} role - deletion authorized',
+        );
+        return true;
+      }
+
+      _logger.w('User does not have permission to delete team');
+      return false;
     } catch (e) {
-      _logger.e('Error checking organizer status: $e');
+      _logger.e('Error checking team deletion permissions: $e');
       return false;
     }
   }
