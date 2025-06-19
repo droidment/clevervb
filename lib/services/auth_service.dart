@@ -3,6 +3,11 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:logger/logger.dart';
 import '../config/env.dart';
 import 'package:flutter/foundation.dart';
+import 'dart:html' as html;
+import 'dart:js' as js;
+import 'dart:js_util' as js_util;
+import 'dart:typed_data';
+import 'dart:math';
 
 class AuthService {
   static final _instance = AuthService._internal();
@@ -184,6 +189,206 @@ class AuthService {
       // Don't rethrow here as authentication was successful
       // Profile creation issues can be handled separately
     }
+  }
+
+  // Sign up with Passkey/WebAuthn
+  Future<AuthResponse?> signUpWithPasskey(
+    String email,
+    String displayName,
+  ) async {
+    try {
+      _logger.i('Starting passkey sign-up for: $email');
+
+      if (kIsWeb) {
+        // Check if WebAuthn is supported
+        if (html.window.navigator.credentials == null) {
+          throw Exception('WebAuthn is not supported in this browser');
+        }
+
+        // Create credential using WebAuthn API
+        final credential = await _createPasskey(email, displayName);
+
+        if (credential != null) {
+          // Create user account with Supabase
+          final response = await _supabase.auth.signUp(
+            email: email,
+            password: credential['id'], // Use credential ID as password
+          );
+
+          if (response.user != null) {
+            _logger.i('Passkey sign-up successful for: $email');
+            await _checkAndCreateUserProfile(response.user!);
+          }
+
+          return response;
+        }
+      } else {
+        throw Exception(
+          'Passkey authentication is currently only supported on web',
+        );
+      }
+
+      return null;
+    } catch (e) {
+      _logger.e('Passkey sign-up failed: $e');
+      rethrow;
+    }
+  }
+
+  // Sign in with Passkey/WebAuthn
+  Future<AuthResponse?> signInWithPasskey() async {
+    try {
+      _logger.i('Starting passkey sign-in');
+
+      if (kIsWeb) {
+        // Check if WebAuthn is supported
+        if (html.window.navigator.credentials == null) {
+          throw Exception('WebAuthn is not supported in this browser');
+        }
+
+        // Get credential using WebAuthn API
+        final credential = await _getPasskey();
+
+        if (credential != null) {
+          // Sign in with Supabase using credential
+          final response = await _supabase.auth.signInWithPassword(
+            email: credential['email'] ?? '',
+            password: credential['id'],
+          );
+
+          if (response.user != null) {
+            _logger.i('Passkey sign-in successful');
+          }
+
+          return response;
+        }
+      } else {
+        throw Exception(
+          'Passkey authentication is currently only supported on web',
+        );
+      }
+
+      return null;
+    } catch (e) {
+      _logger.e('Passkey sign-in failed: $e');
+      rethrow;
+    }
+  }
+
+  // Create a new passkey credential
+  Future<Map<String, dynamic>?> _createPasskey(
+    String email,
+    String displayName,
+  ) async {
+    try {
+      // Convert email to Uint8List for user ID
+      final userIdBytes = Uint8List.fromList(email.codeUnits);
+      final challenge = _generateChallenge();
+
+      // Create proper JavaScript objects for WebAuthn
+      final publicKeyCredentialCreationOptions = js_util.jsify({
+        'challenge': challenge,
+        'rp': {
+          'name': 'CleverVB Sports Team Manager',
+          'id': html.window.location.hostname,
+        },
+        'user': {'id': userIdBytes, 'name': email, 'displayName': displayName},
+        'pubKeyCredParams': [
+          {'alg': -7, 'type': 'public-key'},
+          {'alg': -35, 'type': 'public-key'},
+          {'alg': -36, 'type': 'public-key'},
+          {'alg': -257, 'type': 'public-key'},
+          {'alg': -258, 'type': 'public-key'},
+          {'alg': -259, 'type': 'public-key'},
+        ],
+        'authenticatorSelection': {
+          'authenticatorAttachment': 'platform',
+          'userVerification': 'required',
+          'requireResidentKey': true,
+        },
+        'timeout': 60000,
+        'attestation': 'direct',
+      });
+
+      final credentialCreationOptions = js_util.jsify({
+        'publicKey': publicKeyCredentialCreationOptions,
+      });
+
+      final result = await js_util.promiseToFuture(
+        js_util.callMethod(html.window.navigator.credentials!, 'create', [
+          credentialCreationOptions,
+        ]),
+      );
+
+      if (result != null) {
+        return {
+          'id': js_util.getProperty(result, 'id'),
+          'rawId': js_util.getProperty(result, 'rawId'),
+          'type': js_util.getProperty(result, 'type'),
+          'email': email,
+        };
+      }
+
+      return null;
+    } catch (e) {
+      _logger.e('Error creating passkey: $e');
+      return null;
+    }
+  }
+
+  // Get existing passkey credential
+  Future<Map<String, dynamic>?> _getPasskey() async {
+    try {
+      final challenge = _generateChallenge();
+
+      final publicKeyCredentialRequestOptions = js_util.jsify({
+        'challenge': challenge,
+        'timeout': 60000,
+        'userVerification': 'required',
+        'rpId': html.window.location.hostname,
+      });
+
+      final credentialRequestOptions = js_util.jsify({
+        'publicKey': publicKeyCredentialRequestOptions,
+      });
+
+      final result = await js_util.promiseToFuture(
+        js_util.callMethod(html.window.navigator.credentials!, 'get', [
+          credentialRequestOptions,
+        ]),
+      );
+
+      if (result != null) {
+        return {
+          'id': js_util.getProperty(result, 'id'),
+          'rawId': js_util.getProperty(result, 'rawId'),
+          'type': js_util.getProperty(result, 'type'),
+        };
+      }
+
+      return null;
+    } catch (e) {
+      _logger.e('Error getting passkey: $e');
+      return null;
+    }
+  }
+
+  // Generate a random challenge for WebAuthn
+  Uint8List _generateChallenge() {
+    final random = Random.secure();
+    final bytes = Uint8List(32);
+    for (int i = 0; i < 32; i++) {
+      bytes[i] = random.nextInt(256);
+    }
+    return bytes;
+  }
+
+  // Check if WebAuthn/Passkeys are supported
+  bool get isPasskeySupported {
+    if (kIsWeb) {
+      return html.window.navigator.credentials != null;
+    }
+    return false; // Currently only supporting web
   }
 
   // Sign out

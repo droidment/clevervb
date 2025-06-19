@@ -93,7 +93,71 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 16),
+
+                // Passkey Authentication Section (if supported)
+                if (AuthService().isPasskeySupported) ...[
+                  // Or Divider
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Divider(
+                          color: colorScheme.outline.withOpacity(0.3),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Text(
+                          'or',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: Divider(
+                          color: colorScheme.outline.withOpacity(0.3),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Passkey Sign-In Button
+                  OutlinedButton.icon(
+                    onPressed: _isLoading ? null : _signInWithPasskey,
+                    icon: Icon(Icons.fingerprint, color: colorScheme.primary),
+                    label: Text(
+                      'Sign in with Passkey',
+                      style: TextStyle(
+                        color: colorScheme.primary,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(color: colorScheme.primary),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Create Passkey Link
+                  TextButton(
+                    onPressed: _isLoading ? null : _showCreatePasskeyDialog,
+                    child: Text(
+                      'Don\'t have a passkey? Create one',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.primary,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
 
                 // Age requirement notice
                 Container(
@@ -180,6 +244,123 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     } catch (e) {
       if (mounted) {
         _showErrorSnackBar(e.toString());
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _signInWithPasskey() async {
+    if (_isLoading) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final authService = AuthService();
+
+      final response = await authService.signInWithPasskey();
+
+      if (response?.user != null) {
+        _showSuccessSnackBar('Sign-in successful!');
+        // The auth state listener will handle navigation
+      } else {
+        throw Exception('Failed to sign in with passkey');
+      }
+    } catch (e) {
+      if (mounted) {
+        _showErrorSnackBar('Passkey sign-in failed: ${e.toString()}');
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _showCreatePasskeyDialog() async {
+    if (_isLoading) return;
+
+    final emailController = TextEditingController();
+    final nameController = TextEditingController();
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Create Passkey'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Create a passkey to sign in securely without passwords. You\'ll need to use your device\'s biometric authentication.',
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: emailController,
+                  decoration: const InputDecoration(
+                    labelText: 'Email',
+                    border: OutlineInputBorder(),
+                  ),
+                  keyboardType: TextInputType.emailAddress,
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Display Name',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Create Passkey'),
+              ),
+            ],
+          ),
+    );
+
+    if (result == true &&
+        emailController.text.isNotEmpty &&
+        nameController.text.isNotEmpty) {
+      await _createPasskey(emailController.text, nameController.text);
+    }
+  }
+
+  Future<void> _createPasskey(String email, String displayName) async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final authService = AuthService();
+
+      final response = await authService.signUpWithPasskey(email, displayName);
+
+      if (response?.user != null) {
+        _showSuccessSnackBar(
+          'Passkey created successfully! You can now sign in.',
+        );
+      } else {
+        throw Exception('Failed to create passkey');
+      }
+    } catch (e) {
+      if (mounted) {
+        _showErrorSnackBar('Failed to create passkey: ${e.toString()}');
       }
     } finally {
       if (mounted) {
