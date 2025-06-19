@@ -2,6 +2,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:logger/logger.dart';
 import '../config/env.dart';
+import 'package:flutter/foundation.dart';
 
 class AuthService {
   static final _instance = AuthService._internal();
@@ -37,15 +38,36 @@ class AuthService {
     try {
       _logger.i('Starting Google OAuth sign-in process');
 
+      // For web deployment, use the actual deployed URL
+      final redirectTo =
+          kIsWeb
+              ? '${Uri.base.origin}/auth/callback'
+              : // Production/deployed URL
+              'http://localhost:3000/auth/callback'; // Local development
+
       final response = await _supabase.auth.signInWithOAuth(
         OAuthProvider.google,
-        redirectTo: 'http://localhost:3000', // For local development
+        redirectTo: redirectTo,
       );
 
       _logger.i('Google OAuth initiated successfully');
       return response;
     } catch (e) {
       _logger.e('Google OAuth sign-in failed: $e');
+      rethrow;
+    }
+  }
+
+  // Handle OAuth callback and create user profile if needed
+  Future<void> handleOAuthCallback() async {
+    try {
+      final currentUser = _supabase.auth.currentUser;
+      if (currentUser != null) {
+        _logger.i('OAuth callback successful for user: ${currentUser.email}');
+        await _checkAndCreateUserProfile(currentUser);
+      }
+    } catch (e) {
+      _logger.e('Error handling OAuth callback: $e');
       rethrow;
     }
   }

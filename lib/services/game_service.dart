@@ -219,26 +219,33 @@ class GameService {
       if (address != null) updateData['address'] = address.trim();
       if (latitude != null) updateData['latitude'] = latitude;
       if (longitude != null) updateData['longitude'] = longitude;
-      if (scheduledAt != null)
+      if (scheduledAt != null) {
         updateData['scheduled_at'] = scheduledAt.toIso8601String();
-      if (durationMinutes != null)
+      }
+      if (durationMinutes != null) {
         updateData['duration_minutes'] = durationMinutes;
+      }
       if (maxPlayers != null) updateData['max_players'] = maxPlayers;
       if (feePerPlayer != null) updateData['fee_per_player'] = feePerPlayer;
       if (isPublic != null) updateData['is_public'] = isPublic;
       if (requiresRsvp != null) updateData['requires_rsvp'] = requiresRsvp;
-      if (autoConfirmRsvp != null)
+      if (autoConfirmRsvp != null) {
         updateData['auto_confirm_rsvp'] = autoConfirmRsvp;
-      if (rsvpDeadline != null)
+      }
+      if (rsvpDeadline != null) {
         updateData['rsvp_deadline'] = rsvpDeadline.toIso8601String();
+      }
       if (status != null) updateData['status'] = status;
-      if (cancelledReason != null)
+      if (cancelledReason != null) {
         updateData['cancelled_reason'] = cancelledReason;
-      if (weatherDependent != null)
+      }
+      if (weatherDependent != null) {
         updateData['weather_dependent'] = weatherDependent;
+      }
       if (notes != null) updateData['notes'] = notes.trim();
-      if (equipmentNeeded != null)
+      if (equipmentNeeded != null) {
         updateData['equipment_needed'] = equipmentNeeded;
+      }
 
       await _supabase.from('st_games').update(updateData).eq('id', gameId);
 

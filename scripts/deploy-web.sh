@@ -1,64 +1,57 @@
 #!/bin/bash
 
 # CleverVB Web Deployment Script
-# This script builds the Flutter web app with environment variables for secure API key handling
+# This script builds and deploys the Flutter web app to Firebase
 
-set -e
+set -e  # Exit on any error
 
-echo "🚀 CleverVB Web Deployment Script"
-echo "================================="
+echo "🚀 Starting CleverVB Web Deployment..."
 
-# Check if environment variables are provided
-if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
-    echo "❌ Error: Required environment variables not set!"
-    echo "Please set the following environment variables:"
-    echo "  - SUPABASE_URL"
-    echo "  - SUPABASE_ANON_KEY"
-    echo ""
-    echo "Example usage:"
-    echo "  export SUPABASE_URL='https://your-project.supabase.co'"
-    echo "  export SUPABASE_ANON_KEY='your-anon-key-here'"
-    echo "  export ENVIRONMENT='production'"
-    echo "  ./scripts/deploy-web.sh"
+# Check if we're in the project root
+if [ ! -f "pubspec.yaml" ]; then
+    echo "❌ Error: Please run this script from the project root directory"
     exit 1
 fi
 
-# Set default environment if not specified
-if [ -z "$ENVIRONMENT" ]; then
-    export ENVIRONMENT="production"
-fi
+# Check if required tools are installed
+command -v flutter >/dev/null 2>&1 || { echo "❌ Flutter is required but not installed. Aborting." >&2; exit 1; }
+command -v firebase >/dev/null 2>&1 || { echo "❌ Firebase CLI is required but not installed. Aborting." >&2; exit 1; }
 
-echo "📋 Configuration:"
-echo "  Environment: $ENVIRONMENT"
-echo "  Supabase URL: $SUPABASE_URL"
-echo "  Supabase Key: ${SUPABASE_ANON_KEY:0:20}...[HIDDEN]"
-echo ""
+# Run database migrations first
+echo "📊 Running database migrations..."
+cd supabase
+if command -v supabase >/dev/null 2>&1; then
+    supabase db push
+    echo "✅ Database migrations completed"
+else
+    echo "⚠️  Supabase CLI not found. Please run migrations manually:"
+    echo "   1. Go to your Supabase project dashboard"
+    echo "   2. Run the SQL from migrations/20250618042746_fix_user_table_and_rls.sql"
+fi
+cd ..
 
 # Clean previous builds
 echo "🧹 Cleaning previous builds..."
 flutter clean
 flutter pub get
 
-# Build web app with environment variables
-echo "🔨 Building Flutter web app with secure configuration..."
-flutter build web \
-  --dart-define=SUPABASE_URL="$SUPABASE_URL" \
-  --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY" \
-  --dart-define=ENVIRONMENT="$ENVIRONMENT" \
-  --dart-define=ENABLE_LOGGING=false \
-  --release
+# Build for web with release mode
+echo "🔨 Building Flutter web app..."
+flutter build web --release --web-renderer html
 
-echo "✅ Build completed successfully!"
-echo ""
-echo "📁 Web build output located at: build/web/"
-echo ""
-echo "🌐 Deployment options:"
-echo "  1. Upload build/web/ contents to your web hosting service"
-echo "  2. Use Firebase Hosting: firebase deploy"
-echo "  3. Use Netlify: netlify deploy --prod --dir=build/web"
-echo "  4. Use Vercel: vercel --prod build/web"
-echo ""
-echo "🔒 Security reminder:"
-echo "  - Your API keys are now injected at build time"
-echo "  - They are not stored in your source code"
-echo "  - Make sure to keep your environment variables secure!" 
+# Check if build was successful
+if [ ! -d "build/web" ]; then
+    echo "❌ Flutter build failed"
+    exit 1
+fi
+
+# Deploy to Firebase
+echo "🚀 Deploying to Firebase..."
+firebase deploy --only hosting
+
+echo "✅ Deployment completed successfully!"
+echo "🌐 Your app should be available at your Firebase hosting URL"
+
+# Check Firebase project
+echo "📝 Firebase project info:"
+firebase projects:list 

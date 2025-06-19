@@ -2,7 +2,6 @@ import 'package:logger/logger.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 import '../models/attendance.dart';
-import '../models/game.dart';
 import '../services/game_service.dart';
 
 class AttendanceService {

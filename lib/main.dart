@@ -118,7 +118,18 @@ class AuthenticationWrapper extends ConsumerWidget {
           return const LoginPage();
         }
 
-        // User is signed in, check if profile is complete
+        // User is signed in, handle OAuth callback if needed
+        WidgetsBinding.instance.addPostFrameCallback((_) async {
+          try {
+            final authService = AuthService();
+            await authService.handleOAuthCallback();
+          } catch (e) {
+            // Handle callback error if needed
+            print('OAuth callback error: $e');
+          }
+        });
+
+        // Check if profile is complete
         return const ProfileCompletionChecker();
       },
       loading: () => const LoadingScreen(),

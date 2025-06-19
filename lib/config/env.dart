@@ -31,28 +31,28 @@ class Env {
   );
 
   // Google OAuth Configuration
-  static const String? googleWebClientId = String.fromEnvironment(
+  static const String googleWebClientId = String.fromEnvironment(
     'GOOGLE_WEB_CLIENT_ID',
     defaultValue:
         '743003482567-4ooqr455lbfrn8vjubrrhmnqdo388n6k.apps.googleusercontent.com',
   );
 
-  static const String? googleIOSClientId = String.fromEnvironment(
+  static const String googleIOSClientId = String.fromEnvironment(
     'GOOGLE_IOS_CLIENT_ID',
     defaultValue: 'YOUR_IOS_CLIENT_ID.apps.googleusercontent.com',
   );
 
-  static const String? googleAndroidClientId = String.fromEnvironment(
+  static const String googleAndroidClientId = String.fromEnvironment(
     'GOOGLE_ANDROID_CLIENT_ID',
     defaultValue:
         '743003482567-grjmdppd3sbbpkn9uoc6lcr7ro0tvdp0.apps.googleusercontent.com',
   );
 
   // WhatsApp Configuration (for future implementation)
-  static const String? whatsappBusinessPhoneId = String.fromEnvironment(
+  static const String whatsappBusinessPhoneId = String.fromEnvironment(
     'WHATSAPP_BUSINESS_PHONE_ID',
   );
-  static const String? whatsappAccessToken = String.fromEnvironment(
+  static const String whatsappAccessToken = String.fromEnvironment(
     'WHATSAPP_ACCESS_TOKEN',
   );
 

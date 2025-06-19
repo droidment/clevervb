@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import '../../lib/services/deep_link_service.dart';
+import 'package:clevervb/services/deep_link_service.dart';
 
 void main() {
   group('Deep Link URL Generation', () {

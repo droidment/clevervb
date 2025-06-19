@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../models/game.dart';
 import '../../../models/attendance.dart';
-import '../../../services/attendance_service.dart';
 import '../game_attendance_detail_page.dart';
 
 class GameAttendanceList extends StatelessWidget {

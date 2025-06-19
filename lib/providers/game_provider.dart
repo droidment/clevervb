@@ -1,7 +1,6 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../models/game.dart';
 import '../services/game_service.dart';
-import '../services/auth_service.dart';
 import 'auth_provider.dart';
 
 part 'game_provider.g.dart';

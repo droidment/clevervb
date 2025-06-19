@@ -34,11 +34,39 @@ class TeamService {
         'Current auth user: ${currentUser?.id} (${currentUser?.email})',
       );
 
+      if (currentUser == null) {
+        throw Exception('User must be authenticated to create a team');
+      }
+
+      // Ensure user profile exists before creating team
+      await authService.handleOAuthCallback();
+
       final userId = await authService.getCurrentUserId();
       _logger.i('Retrieved st_users.id: $userId');
 
       if (userId == null) {
-        throw Exception('User must be authenticated to create a team');
+        // Try to create user profile if it doesn't exist
+        _logger.w('No user profile found, attempting to create one...');
+        try {
+          await authService.handleOAuthCallback();
+          final retryUserId = await authService.getCurrentUserId();
+          if (retryUserId == null) {
+            throw Exception(
+              'Unable to create or find user profile. Please complete your profile setup first.',
+            );
+          }
+          _logger.i('User profile created successfully: $retryUserId');
+        } catch (e) {
+          _logger.e('Failed to create user profile: $e');
+          throw Exception(
+            'Please complete your profile setup before creating a team.',
+          );
+        }
+      }
+
+      final finalUserId = userId ?? await authService.getCurrentUserId();
+      if (finalUserId == null) {
+        throw Exception('Unable to determine user ID for team creation');
       }
 
       final teamId = _uuid.v4();
@@ -51,7 +79,7 @@ class TeamService {
         'sport': sportType.toLowerCase(), // Required NOT NULL column
         'sport_type': sportType.toLowerCase(), // Compatibility column
         'description': description?.trim(),
-        'organizer_id': userId,
+        'organizer_id': finalUserId,
         'is_public': isPublic,
         'max_members': maxMembers,
         'max_players': maxMembers, // Also set the original column
@@ -62,7 +90,7 @@ class TeamService {
       // Add organizer as team member
       await _supabase.from('st_team_members').insert({
         'team_id': teamId,
-        'user_id': userId,
+        'user_id': finalUserId,
         'role': 'organizer',
         'joined_at': now.toIso8601String(),
       });

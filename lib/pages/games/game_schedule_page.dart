@@ -523,7 +523,7 @@ class _GameSchedulePageState extends ConsumerState<GameSchedulePage> {
                     ListTile(
                       leading: const Icon(Icons.timer),
                       title: const Text('Duration'),
-                      subtitle: Text('${_durationMinutes} minutes'),
+                      subtitle: Text('$_durationMinutes minutes'),
                       trailing: SizedBox(
                         width: 100,
                         child: DropdownButton<int>(

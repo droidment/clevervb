@@ -85,12 +85,14 @@ class ProfileService {
 
       if (fullName != null) updateData['full_name'] = fullName.trim();
       if (phone != null) updateData['phone'] = phone.trim();
-      if (dateOfBirth != null)
+      if (dateOfBirth != null) {
         updateData['date_of_birth'] = dateOfBirth.toIso8601String();
+      }
       if (location != null) updateData['location'] = location.trim();
       if (bio != null) updateData['bio'] = bio.trim();
-      if (preferredSports != null)
+      if (preferredSports != null) {
         updateData['preferred_sports'] = preferredSports;
+      }
       if (skillLevel != null) updateData['skill_level'] = skillLevel;
 
       // Check if profile should be marked as complete
