@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 import '../models/attendance.dart';
 import '../services/game_service.dart';
+import 'auth_service.dart';
 
 class AttendanceService {
   static final _instance = AttendanceService._internal();
@@ -24,6 +25,13 @@ class AttendanceService {
         throw Exception('User must be authenticated to check in');
       }
 
+      // Convert auth user id to st_users.id
+      final authService = AuthService();
+      final stUserId = await authService.getCurrentUserId();
+      if (stUserId == null) {
+        throw Exception('User profile not found');
+      }
+
       final game = await _gameService.getGame(gameId);
 
       // Validate check-in window
@@ -32,12 +40,12 @@ class AttendanceService {
       }
 
       // Check if already checked in
-      final existingAttendance = await getUserAttendance(gameId, user.id);
+      final existingAttendance = await getUserAttendance(gameId, stUserId);
       if (existingAttendance != null) {
         throw Exception('Already checked in for this game');
       }
 
-      _logger.i('Checking in user ${user.id} for game: $gameId');
+      _logger.i('Checking in user $stUserId for game: $gameId');
 
       final attendanceId = _uuid.v4();
       final now = DateTime.now();
@@ -52,7 +60,7 @@ class AttendanceService {
       await _supabase.from('st_attendances').insert({
         'id': attendanceId,
         'game_id': gameId,
-        'user_id': user.id,
+        'user_id': stUserId,
         'checked_in_at': now.toIso8601String(),
         'status': status,
         'notes': notes?.trim(),
@@ -64,7 +72,7 @@ class AttendanceService {
       if (game.feePerPlayer != null && game.feePerPlayer! > 0) {
         await _createFeeRecord(
           gameId: gameId,
-          userId: user.id,
+          userId: stUserId,
           amount: game.feePerPlayer!,
           attendanceId: attendanceId,
         );
@@ -87,7 +95,11 @@ class AttendanceService {
         throw Exception('User must be authenticated to check out');
       }
 
-      final attendance = await getUserAttendance(gameId, user.id);
+      // Map auth user to st_users.id to match attendance records
+      final authService = AuthService();
+      final stUserId = await authService.getCurrentUserId();
+      final attendance = await getUserAttendance(gameId, stUserId ?? user.id);
+
       if (attendance == null) {
         throw Exception('No check-in record found for this game');
       }

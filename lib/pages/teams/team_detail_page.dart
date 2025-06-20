@@ -510,7 +510,8 @@ class _TeamGamesSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final upcomingGamesAsync = ref.watch(upcomingTeamGamesProvider(teamId));
+    // Fetch all games for the team so we can split into upcoming vs past.
+    final teamGamesAsync = ref.watch(teamGamesProvider(teamId));
 
     return Card(
       child: Padding(
@@ -527,27 +528,31 @@ class _TeamGamesSection extends ConsumerWidget {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                upcomingGamesAsync.when(
-                  data:
-                      (games) => Chip(
-                        label: Text('${games.length}'),
-                        backgroundColor:
-                            games.isNotEmpty
-                                ? Theme.of(context).colorScheme.primaryContainer
+                teamGamesAsync.when(
+                  data: (games) {
+                    final now = DateTime.now();
+                    final upcomingCount =
+                        games.where((g) => g.scheduledAt.isAfter(now)).length;
+                    return Chip(
+                      label: Text('$upcomingCount'),
+                      backgroundColor:
+                          upcomingCount > 0
+                              ? Theme.of(context).colorScheme.primaryContainer
+                              : Theme.of(
+                                context,
+                              ).colorScheme.surfaceContainerHighest,
+                      labelStyle: TextStyle(
+                        color:
+                            upcomingCount > 0
+                                ? Theme.of(
+                                  context,
+                                ).colorScheme.onPrimaryContainer
                                 : Theme.of(
                                   context,
-                                ).colorScheme.surfaceContainerHighest,
-                        labelStyle: TextStyle(
-                          color:
-                              games.isNotEmpty
-                                  ? Theme.of(
-                                    context,
-                                  ).colorScheme.onPrimaryContainer
-                                  : Theme.of(
-                                    context,
-                                  ).colorScheme.onSurfaceVariant,
-                        ),
+                                ).colorScheme.onSurfaceVariant,
                       ),
+                    );
+                  },
                   loading:
                       () => const SizedBox(
                         width: 20,
@@ -559,7 +564,7 @@ class _TeamGamesSection extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 16),
-            upcomingGamesAsync.when(
+            teamGamesAsync.when(
               loading:
                   () => const Center(
                     child: Padding(
@@ -631,40 +636,97 @@ class _TeamGamesSection extends ConsumerWidget {
                   );
                 }
 
+                final now = DateTime.now();
+
+                final upcomingGames = List<Game>.from(
+                  games.where((g) => g.scheduledAt.isAfter(now)),
+                )..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
+
+                final pastGames = List<Game>.from(
+                  games.where((g) => !g.scheduledAt.isAfter(now)),
+                )..sort((a, b) => b.scheduledAt.compareTo(a.scheduledAt));
+
                 return Column(
-                  children:
-                      games
-                          .take(3)
-                          .map((game) => _GameListItem(game: game))
-                          .toList(),
+                  children: [
+                    if (upcomingGames.isEmpty)
+                      Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: Text(
+                            'No upcoming games',
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                        ),
+                      )
+                    else
+                      ...upcomingGames
+                          .map((g) => _GameListItem(game: g))
+                          ,
+
+                    if (pastGames.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      ExpansionTile(
+                        title: Text(
+                          'Past Games',
+                          style: Theme.of(context).textTheme.bodyLarge,
+                        ),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Chip(
+                              label: Text('${pastGames.length}'),
+                              backgroundColor:
+                                  Theme.of(
+                                    context,
+                                  ).colorScheme.surfaceContainerHighest,
+                            ),
+                            const Icon(Icons.expand_more),
+                          ],
+                        ),
+                        children:
+                            pastGames
+                                .map(
+                                  (g) => Padding(
+                                    padding: const EdgeInsets.only(
+                                      left: 8.0,
+                                      right: 8.0,
+                                      bottom: 4.0,
+                                    ),
+                                    child: _GameListItem(game: g),
+                                  ),
+                                )
+                                .toList(),
+                      ),
+                    ],
+                  ],
                 );
               },
             ),
 
             // View All Games Button (if there are games)
-            upcomingGamesAsync.when(
-              data:
-                  (games) =>
-                      games.length > 3
-                          ? Padding(
-                            padding: const EdgeInsets.only(top: 8.0),
-                            child: Center(
-                              child: TextButton(
-                                onPressed: () {
-                                  // TODO: Navigate to all games page
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'All games page coming soon!',
-                                      ),
-                                    ),
-                                  );
-                                },
-                                child: Text('View All ${games.length} Games'),
+            teamGamesAsync.when(
+              data: (games) {
+                final now = DateTime.now();
+                final upcomingGames =
+                    games.where((g) => g.scheduledAt.isAfter(now)).toList();
+                return upcomingGames.length > 3
+                    ? Padding(
+                      padding: const EdgeInsets.only(top: 8.0),
+                      child: Center(
+                        child: TextButton(
+                          onPressed: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('All games page coming soon!'),
                               ),
-                            ),
-                          )
-                          : const SizedBox.shrink(),
+                            );
+                          },
+                          child: Text('View All ${upcomingGames.length} Games'),
+                        ),
+                      ),
+                    )
+                    : const SizedBox.shrink();
+              },
               loading: () => const SizedBox.shrink(),
               error: (_, __) => const SizedBox.shrink(),
             ),
@@ -675,13 +737,13 @@ class _TeamGamesSection extends ConsumerWidget {
   }
 }
 
-class _GameListItem extends StatelessWidget {
+class _GameListItem extends ConsumerWidget {
   final Game game;
 
   const _GameListItem({required this.game});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final now = DateTime.now();
     final isUpcoming = game.scheduledAt.isAfter(now);
     final timeUntil = game.scheduledAt.difference(now);
@@ -714,6 +776,9 @@ class _GameListItem extends StatelessWidget {
     }
 
     final rsvpCount = game.rsvpCount ?? 0;
+
+    // Determine current user's RSVP (yes/no/maybe/null)
+    final userRsvpAsync = ref.watch(userGameRsvpProvider(game.id));
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
@@ -873,59 +938,58 @@ class _GameListItem extends StatelessWidget {
                               : Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                   ),
-                  if (game.requiresRsvp && isUpcoming) ...[
-                    const SizedBox(height: 4),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color:
-                            game.isRsvpOpen
-                                ? Theme.of(context).colorScheme.primaryContainer
-                                : Theme.of(context).colorScheme.errorContainer,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            game.isRsvpOpen
-                                ? Icons.how_to_reg
-                                : Icons.event_busy,
-                            size: 12,
-                            color:
-                                game.isRsvpOpen
-                                    ? Theme.of(
-                                      context,
-                                    ).colorScheme.onPrimaryContainer
-                                    : Theme.of(
-                                      context,
-                                    ).colorScheme.onErrorContainer,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            game.isRsvpOpen ? 'RSVP Now' : 'RSVP Closed',
-                            style: Theme.of(
-                              context,
-                            ).textTheme.bodySmall?.copyWith(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color:
-                                  game.isRsvpOpen
-                                      ? Theme.of(
-                                        context,
-                                      ).colorScheme.onPrimaryContainer
-                                      : Theme.of(
-                                        context,
-                                      ).colorScheme.onErrorContainer,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                  userRsvpAsync.when(
+                    data: (rsvp) {
+                      if (!game.requiresRsvp || !isUpcoming) {
+                        return const SizedBox.shrink();
+                      }
+
+                      if (rsvp == null) {
+                        // Show RSVP Now button
+                        return _buildStatusChip(
+                          context,
+                          label: 'RSVP Now',
+                          icon: Icons.how_to_reg,
+                          isActive: game.isRsvpOpen,
+                        );
+                      }
+
+                      final response =
+                          (rsvp['response'] as String?)?.toLowerCase();
+                      switch (response) {
+                        case 'yes':
+                          return _buildStatusChip(
+                            context,
+                            label: 'Going',
+                            icon: Icons.check,
+                            color: Colors.green,
+                          );
+                        case 'no':
+                          return _buildStatusChip(
+                            context,
+                            label: "Can't Go",
+                            icon: Icons.cancel,
+                            color: Colors.red,
+                          );
+                        case 'maybe':
+                          return _buildStatusChip(
+                            context,
+                            label: 'Maybe',
+                            icon: Icons.help_outline,
+                            color: Colors.orange,
+                          );
+                        default:
+                          return _buildStatusChip(
+                            context,
+                            label: 'RSVP Now',
+                            icon: Icons.how_to_reg,
+                            isActive: game.isRsvpOpen,
+                          );
+                      }
+                    },
+                    loading: () => const SizedBox.shrink(),
+                    error: (_, __) => const SizedBox.shrink(),
+                  ),
                   // Arrow indicator for tap
                   const SizedBox(height: 4),
                   Icon(
@@ -938,6 +1002,50 @@ class _GameListItem extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildStatusChip(
+    BuildContext context, {
+    required String label,
+    required IconData icon,
+    Color? color,
+    bool isActive = true,
+  }) {
+    final bg =
+        color ??
+        (isActive
+            ? Theme.of(context).colorScheme.primaryContainer
+            : Theme.of(context).colorScheme.errorContainer);
+    final fg =
+        color != null
+            ? Colors.white
+            : (isActive
+                ? Theme.of(context).colorScheme.onPrimaryContainer
+                : Theme.of(context).colorScheme.onErrorContainer);
+
+    return Container(
+      margin: const EdgeInsets.only(top: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: fg),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: fg,
+            ),
+          ),
+        ],
       ),
     );
   }

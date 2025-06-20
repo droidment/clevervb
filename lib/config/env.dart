@@ -141,7 +141,7 @@ class Env {
     print('Supabase Key: ${supabaseAnonKey.substring(0, 20)}...[HIDDEN]');
     print('Enable Logging: $enableLogging');
     print(
-      'Google Web Client ID: ${googleWebClientId?.substring(0, 20)}...[HIDDEN]',
+      'Google Web Client ID: ${googleWebClientId.substring(0, 20)}...[HIDDEN]',
     );
     print('===============================');
   }

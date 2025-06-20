@@ -754,5 +754,139 @@ class _DiscoverGamesProviderElement
   int get limit => (origin as DiscoverGamesProvider).limit;
 }
 
+String _$userGameRsvpHash() => r'161289c049fbc9625a59ab07e9d7ac3abc1f996d';
+
+/// Provider to get current user's RSVP for a specific game (if any)
+///
+/// Copied from [userGameRsvp].
+@ProviderFor(userGameRsvp)
+const userGameRsvpProvider = UserGameRsvpFamily();
+
+/// Provider to get current user's RSVP for a specific game (if any)
+///
+/// Copied from [userGameRsvp].
+class UserGameRsvpFamily extends Family<AsyncValue<Map<String, dynamic>?>> {
+  /// Provider to get current user's RSVP for a specific game (if any)
+  ///
+  /// Copied from [userGameRsvp].
+  const UserGameRsvpFamily();
+
+  /// Provider to get current user's RSVP for a specific game (if any)
+  ///
+  /// Copied from [userGameRsvp].
+  UserGameRsvpProvider call(String gameId) {
+    return UserGameRsvpProvider(gameId);
+  }
+
+  @override
+  UserGameRsvpProvider getProviderOverride(
+    covariant UserGameRsvpProvider provider,
+  ) {
+    return call(provider.gameId);
+  }
+
+  static const Iterable<ProviderOrFamily>? _dependencies = null;
+
+  @override
+  Iterable<ProviderOrFamily>? get dependencies => _dependencies;
+
+  static const Iterable<ProviderOrFamily>? _allTransitiveDependencies = null;
+
+  @override
+  Iterable<ProviderOrFamily>? get allTransitiveDependencies =>
+      _allTransitiveDependencies;
+
+  @override
+  String? get name => r'userGameRsvpProvider';
+}
+
+/// Provider to get current user's RSVP for a specific game (if any)
+///
+/// Copied from [userGameRsvp].
+class UserGameRsvpProvider
+    extends AutoDisposeFutureProvider<Map<String, dynamic>?> {
+  /// Provider to get current user's RSVP for a specific game (if any)
+  ///
+  /// Copied from [userGameRsvp].
+  UserGameRsvpProvider(String gameId)
+    : this._internal(
+        (ref) => userGameRsvp(ref as UserGameRsvpRef, gameId),
+        from: userGameRsvpProvider,
+        name: r'userGameRsvpProvider',
+        debugGetCreateSourceHash:
+            const bool.fromEnvironment('dart.vm.product')
+                ? null
+                : _$userGameRsvpHash,
+        dependencies: UserGameRsvpFamily._dependencies,
+        allTransitiveDependencies:
+            UserGameRsvpFamily._allTransitiveDependencies,
+        gameId: gameId,
+      );
+
+  UserGameRsvpProvider._internal(
+    super._createNotifier, {
+    required super.name,
+    required super.dependencies,
+    required super.allTransitiveDependencies,
+    required super.debugGetCreateSourceHash,
+    required super.from,
+    required this.gameId,
+  }) : super.internal();
+
+  final String gameId;
+
+  @override
+  Override overrideWith(
+    FutureOr<Map<String, dynamic>?> Function(UserGameRsvpRef provider) create,
+  ) {
+    return ProviderOverride(
+      origin: this,
+      override: UserGameRsvpProvider._internal(
+        (ref) => create(ref as UserGameRsvpRef),
+        from: from,
+        name: null,
+        dependencies: null,
+        allTransitiveDependencies: null,
+        debugGetCreateSourceHash: null,
+        gameId: gameId,
+      ),
+    );
+  }
+
+  @override
+  AutoDisposeFutureProviderElement<Map<String, dynamic>?> createElement() {
+    return _UserGameRsvpProviderElement(this);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is UserGameRsvpProvider && other.gameId == gameId;
+  }
+
+  @override
+  int get hashCode {
+    var hash = _SystemHash.combine(0, runtimeType.hashCode);
+    hash = _SystemHash.combine(hash, gameId.hashCode);
+
+    return _SystemHash.finish(hash);
+  }
+}
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+mixin UserGameRsvpRef on AutoDisposeFutureProviderRef<Map<String, dynamic>?> {
+  /// The parameter `gameId` of this provider.
+  String get gameId;
+}
+
+class _UserGameRsvpProviderElement
+    extends AutoDisposeFutureProviderElement<Map<String, dynamic>?>
+    with UserGameRsvpRef {
+  _UserGameRsvpProviderElement(super.provider);
+
+  @override
+  String get gameId => (origin as UserGameRsvpProvider).gameId;
+}
+
 // ignore_for_file: type=lint
 // ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member, deprecated_member_use_from_same_package

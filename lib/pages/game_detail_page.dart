@@ -5,6 +5,7 @@ import '../models/game.dart';
 import '../services/game_service.dart';
 import '../providers/game_provider.dart';
 import '../services/auth_service.dart';
+import 'package:clevervb/utils/sport_utils.dart';
 
 class GameDetailPage extends ConsumerStatefulWidget {
   final Game game;
@@ -178,6 +179,9 @@ class _GameDetailPageState extends ConsumerState<GameDetailPage> {
     final timeFormat = DateFormat('h:mm a');
     final isGameFinished = widget.game.hasEnded;
 
+    // Sport-specific primary color
+    final Color sportColor = SportUtils.color(widget.game.sport);
+
     return Scaffold(
       body: CustomScrollView(
         slivers: [
@@ -185,8 +189,7 @@ class _GameDetailPageState extends ConsumerState<GameDetailPage> {
           SliverAppBar(
             expandedHeight: 180,
             pinned: true,
-            backgroundColor:
-                isGameFinished ? Colors.grey[600] : theme.primaryColor,
+            backgroundColor: isGameFinished ? Colors.grey[600] : sportColor,
             flexibleSpace: FlexibleSpaceBar(
               collapseMode: CollapseMode.parallax,
               background: Container(
@@ -195,10 +198,10 @@ class _GameDetailPageState extends ConsumerState<GameDetailPage> {
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [
-                      isGameFinished ? Colors.grey[800]! : theme.primaryColor,
+                      isGameFinished ? Colors.grey[800]! : sportColor,
                       isGameFinished
                           ? Colors.grey[600]!
-                          : theme.primaryColor.withOpacity(0.8),
+                          : sportColor.withOpacity(0.8),
                     ],
                   ),
                 ),

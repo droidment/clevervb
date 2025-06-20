@@ -218,11 +218,10 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                 subtitle: 'Browse games to join some matches!',
               );
             }
-            // Filter out cancelled games for immediate UI update
+            // Filter out cancelled games and sort by soonest first
             final filteredGames =
-                games
-                    .where((game) => !_cancelledGameIds.contains(game.id))
-                    .toList();
+                games.where((g) => !_cancelledGameIds.contains(g.id)).toList()
+                  ..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
 
             return Column(
               children:
@@ -267,10 +266,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
             }
             return Column(
               children:
-                  teams
-                      .take(3)
-                      .map((team) => _buildTeamCard(context, team))
-                      .toList(),
+                  teams.map((team) => _buildTeamCard(context, team)).toList(),
             );
           },
           loading: () => const Center(child: CircularProgressIndicator()),
@@ -366,8 +362,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (game.canCheckIn)
-              IconButton(
-                icon: Icon(Icons.login, color: Colors.green[600], size: 20),
+              ElevatedButton.icon(
                 onPressed: () {
                   Navigator.of(context).push(
                     MaterialPageRoute(
@@ -375,24 +370,22 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                     ),
                   );
                 },
-                tooltip: 'Check In',
-              ),
-            IconButton(
-              icon: Icon(
-                Icons.cancel_outlined,
-                color: Colors.red[400],
-                size: 20,
-              ),
-              onPressed:
-                  () => _showCancelRsvpDialog(
-                    context,
-                    ref,
-                    game,
-                    isWithin12Hours,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
                   ),
-              tooltip: 'Cancel RSVP',
-            ),
-            Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey[400]),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                icon: const Icon(Icons.login, size: 18),
+                label: const Text('Check In'),
+              ),
+            if (!game.canCheckIn)
+              Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey[400]),
           ],
         ),
         onTap: () => _showGameDetails(context, game),

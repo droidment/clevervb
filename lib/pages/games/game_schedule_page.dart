@@ -3,10 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../models/game.dart';
-import '../../models/team.dart';
 import '../../services/game_service.dart';
 import '../../services/auth_service.dart';
-import '../../providers/team_provider.dart';
+import '../../services/team_service.dart';
 
 class GameSchedulePage extends ConsumerStatefulWidget {
   final String teamId;
@@ -52,6 +51,7 @@ class _GameSchedulePageState extends ConsumerState<GameSchedulePage> {
   void initState() {
     super.initState();
     _initializeForm();
+    _prefillFromTeam();
   }
 
   void _initializeForm() {
@@ -88,6 +88,48 @@ class _GameSchedulePageState extends ConsumerState<GameSchedulePage> {
       // Set defaults for new game
       _maxPlayers = _selectedSport.defaultMaxPlayers;
       _feeController.text = _selectedSport.defaultFee.toStringAsFixed(2);
+    }
+  }
+
+  Future<void> _prefillFromTeam() async {
+    if (widget.existingGame != null) return;
+
+    try {
+      final teamService = TeamService();
+      final team = await teamService.getTeam(widget.teamId);
+
+      if (team != null) {
+        final sportMatch = Sport.values.firstWhere(
+          (s) => s.name.toLowerCase() == team.sportType.toLowerCase(),
+          orElse: () => _selectedSport,
+        );
+        setState(() {
+          _selectedSport = sportMatch;
+          _maxPlayers = sportMatch.defaultMaxPlayers;
+          _feeController.text = sportMatch.defaultFee.toStringAsFixed(2);
+        });
+      }
+
+      final previousGames = await _gameService.getTeamGames(
+        widget.teamId,
+        upcomingOnly: false,
+      );
+      if (previousGames.isNotEmpty) {
+        previousGames.sort((a, b) => b.scheduledAt.compareTo(a.scheduledAt));
+        final lastGame = previousGames.first;
+        setState(() {
+          _durationMinutes = lastGame.durationMinutes;
+          _maxPlayers = lastGame.maxPlayers;
+          _feeController.text =
+              lastGame.feePerPlayer?.toStringAsFixed(2) ?? _feeController.text;
+          _venueController.text = lastGame.venue;
+          _addressController.text = lastGame.address ?? '';
+          _latitude = lastGame.latitude;
+          _longitude = lastGame.longitude;
+        });
+      }
+    } catch (e) {
+      // Silent fail, but log if needed
     }
   }
 

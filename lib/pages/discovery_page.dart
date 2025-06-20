@@ -4,11 +4,13 @@ import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:intl/intl.dart';
+import 'package:clevervb/utils/sport_utils.dart';
 
 import '../models/game.dart';
 import '../services/game_service.dart';
 import '../services/deep_link_service.dart';
 import '../providers/auth_provider.dart';
+import '../providers/game_provider.dart';
 
 class DiscoveryPage extends ConsumerStatefulWidget {
   const DiscoveryPage({super.key});
@@ -17,7 +19,8 @@ class DiscoveryPage extends ConsumerStatefulWidget {
   ConsumerState<DiscoveryPage> createState() => _DiscoveryPageState();
 }
 
-class _DiscoveryPageState extends ConsumerState<DiscoveryPage> {
+class _DiscoveryPageState extends ConsumerState<DiscoveryPage>
+    with TickerProviderStateMixin {
   final _gameService = GameService();
   final _deepLinkService = DeepLinkService();
   final _searchController = TextEditingController();
@@ -26,6 +29,7 @@ class _DiscoveryPageState extends ConsumerState<DiscoveryPage> {
   bool _isLoading = false;
   bool _isLoadingLocation = false;
   String? _errorMessage;
+  final Set<String> _joinedGameIds = {};
 
   // Filter state
   String? _selectedSport;
@@ -45,15 +49,19 @@ class _DiscoveryPageState extends ConsumerState<DiscoveryPage> {
     'soccer',
   ];
 
+  late TabController _tabController;
+
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
     _initializeLocation();
     _loadGames();
   }
 
   @override
   void dispose() {
+    _tabController.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -169,14 +177,45 @@ class _DiscoveryPageState extends ConsumerState<DiscoveryPage> {
           ),
         );
 
-        // Reload games to update RSVP counts
-        _loadGames();
+        setState(() {
+          if (response == RsvpResponse.yes) {
+            _joinedGameIds.add(game.id);
+          } else {
+            _joinedGameIds.remove(game.id);
+          }
+        });
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Failed to submit RSVP: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _cancelRsvp(Game game) async {
+    try {
+      await _gameService.removeRsvp(game.id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('RSVP cancelled'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        setState(() {
+          _joinedGameIds.remove(game.id);
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to cancel RSVP: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -217,16 +256,53 @@ class _DiscoveryPageState extends ConsumerState<DiscoveryPage> {
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(currentUserProvider);
+    final myGamesAsync = ref.watch(upcomingUserRsvpedGamesProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Discover Games'), elevation: 0),
-      body: Column(
+      appBar: AppBar(
+        title: const Text('Games'),
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: const [Tab(text: 'My Games'), Tab(text: 'Discover')],
+        ),
+      ),
+      body: TabBarView(
+        controller: _tabController,
         children: [
-          // Filters Section
-          _buildFiltersSection(),
+          // My Games tab
+          myGamesAsync.when(
+            data:
+                (games) =>
+                    games.isEmpty
+                        ? const Center(child: Text('No RSVPs yet'))
+                        : RefreshIndicator(
+                          onRefresh: () async {
+                            ref.invalidate(upcomingUserRsvpedGamesProvider);
+                          },
+                          child: ListView.builder(
+                            itemCount: games.length,
+                            itemBuilder:
+                                (context, index) => _GameDiscoveryCard(
+                                  game: games[index],
+                                  joined: true,
+                                  onJoin: () {},
+                                  onCancel: () => _cancelRsvp(games[index]),
+                                  onShare: _shareGame,
+                                  onShareWhatsApp: _shareGameViaWhatsApp,
+                                ),
+                          ),
+                        ),
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, _) => Center(child: Text('Error: $e')),
+          ),
 
-          // Games List
-          Expanded(child: _buildGamesList()),
+          // Discover tab
+          Column(
+            children: [
+              _buildFiltersSection(),
+              Expanded(child: _buildGamesList()),
+            ],
+          ),
         ],
       ),
     );
@@ -444,9 +520,12 @@ class _DiscoveryPageState extends ConsumerState<DiscoveryPage> {
         itemCount: _discoveredGames.length,
         itemBuilder: (context, index) {
           final game = _discoveredGames[index];
+          final joined = _joinedGameIds.contains(game.id);
           return _GameDiscoveryCard(
             game: game,
-            onRsvp: _rsvpToGame,
+            joined: joined,
+            onJoin: () => _rsvpToGame(game, RsvpResponse.yes),
+            onCancel: () => _cancelRsvp(game),
             onShare: _shareGame,
             onShareWhatsApp: _shareGameViaWhatsApp,
           );
@@ -458,13 +537,17 @@ class _DiscoveryPageState extends ConsumerState<DiscoveryPage> {
 
 class _GameDiscoveryCard extends StatelessWidget {
   final Game game;
-  final Function(Game, RsvpResponse) onRsvp;
+  final bool joined;
+  final VoidCallback onJoin;
+  final VoidCallback onCancel;
   final Function(Game) onShare;
   final Function(Game) onShareWhatsApp;
 
   const _GameDiscoveryCard({
     required this.game,
-    required this.onRsvp,
+    required this.joined,
+    required this.onJoin,
+    required this.onCancel,
     required this.onShare,
     required this.onShareWhatsApp,
   });
@@ -671,37 +754,44 @@ class _GameDiscoveryCard extends StatelessWidget {
 
             // RSVP buttons
             if (game.isRsvpOpen) ...[
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => onRsvp(game, RsvpResponse.no),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.red,
-                        side: const BorderSide(color: Colors.red),
-                      ),
-                      child: const Text('Can\'t Go'),
+              joined
+                  ? ElevatedButton.icon(
+                    onPressed: onCancel,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                      foregroundColor: Colors.white,
                     ),
-                  ),
-
-                  const SizedBox(width: 8),
-
-                  Expanded(
-                    flex: 2,
-                    child: ElevatedButton(
-                      onPressed:
-                          !game.isFull
-                              ? () => onRsvp(game, RsvpResponse.yes)
-                              : null,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
-                        foregroundColor: Colors.white,
+                    icon: const Icon(Icons.cancel),
+                    label: const Text('Cancel RSVP'),
+                  )
+                  : Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: onCancel,
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.red,
+                            side: const BorderSide(color: Colors.red),
+                          ),
+                          child: const Text('Can\'t Go'),
+                        ),
                       ),
-                      child: Text(!game.isFull ? 'Join Game' : 'Full'),
-                    ),
+
+                      const SizedBox(width: 8),
+
+                      Expanded(
+                        flex: 2,
+                        child: ElevatedButton(
+                          onPressed: !game.isFull ? onJoin : null,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green,
+                            foregroundColor: Colors.white,
+                          ),
+                          child: Text(!game.isFull ? 'Join Game' : 'Full'),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
             ] else ...[
               Container(
                 width: double.infinity,
@@ -726,24 +816,7 @@ class _GameDiscoveryCard extends StatelessWidget {
     );
   }
 
-  Color _getSportColor(String sport) {
-    switch (sport.toLowerCase()) {
-      case 'volleyball':
-        return Colors.orange;
-      case 'pickleball':
-        return Colors.green;
-      case 'basketball':
-        return Colors.deepOrange;
-      case 'tennis':
-        return Colors.blue;
-      case 'badminton':
-        return Colors.purple;
-      case 'soccer':
-        return Colors.teal;
-      default:
-        return Colors.grey;
-    }
-  }
+  Color _getSportColor(String sport) => SportUtils.color(sport);
 
   Color _getStatusColor(String status) {
     switch (status.toLowerCase()) {
@@ -767,4 +840,3 @@ extension StringExtension on String {
     return "${this[0].toUpperCase()}${substring(1)}";
   }
 }
- 

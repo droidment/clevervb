@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:typed_data';
 import 'package:logger/logger.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -263,18 +262,12 @@ class ProfileService {
       if (gameIds.isNotEmpty) {
         final gameResponse = await _supabase
             .from('st_games')
-            .select('start_time, end_time')
+            .select('duration_minutes')
             .inFilter('id', gameIds);
 
-        // Calculate hours based on start/end times
         for (final game in gameResponse) {
-          if (game['start_time'] != null && game['end_time'] != null) {
-            final startTime = DateTime.parse(
-              '2024-01-01 ${game['start_time']}',
-            );
-            final endTime = DateTime.parse('2024-01-01 ${game['end_time']}');
-            final duration = endTime.difference(startTime).inMinutes / 60.0;
-            totalGameHours += duration;
+          if (game['duration_minutes'] != null) {
+            totalGameHours += (game['duration_minutes'] as int) / 60.0;
           }
         }
       }

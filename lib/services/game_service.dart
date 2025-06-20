@@ -665,7 +665,7 @@ class GameService {
       address: response['address'],
       latitude: response['latitude']?.toDouble(),
       longitude: response['longitude']?.toDouble(),
-      scheduledAt: DateTime.parse(response['scheduled_at']),
+      scheduledAt: DateTime.parse(response['scheduled_at']).toLocal(),
       durationMinutes: response['duration_minutes'],
       maxPlayers: response['max_players'],
       feePerPlayer: response['fee_per_player']?.toDouble(),
@@ -674,7 +674,7 @@ class GameService {
       autoConfirmRsvp: response['auto_confirm_rsvp'],
       rsvpDeadline:
           response['rsvp_deadline'] != null
-              ? DateTime.parse(response['rsvp_deadline'])
+              ? DateTime.parse(response['rsvp_deadline']).toLocal()
               : null,
       status: response['status'],
       cancelledReason: response['cancelled_reason'],

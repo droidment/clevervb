@@ -122,3 +122,22 @@ Future<List<Game>> discoverGames(
     limit: limit,
   );
 }
+
+/// Provider to get current user's RSVP for a specific game (if any)
+@riverpod
+Future<Map<String, dynamic>?> userGameRsvp(
+  UserGameRsvpRef ref,
+  String gameId,
+) async {
+  final authService = ref.watch(authServiceProvider);
+  final gameService = ref.watch(gameServiceProvider);
+
+  // Ensure user is logged in
+  final user = authService.currentUser;
+  if (user == null) return null;
+
+  final userId = await authService.getCurrentUserId();
+  if (userId == null) return null;
+
+  return gameService.getUserRsvp(gameId, userId);
+}

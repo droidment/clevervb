@@ -13,16 +13,13 @@ class DeepLinkService {
   final _supabase = Supabase.instance.client;
 
   // Base URL for the app (you'll need to configure this)
-  static const String _baseUrl =
-      'https://clevervb.app'; // Replace with your actual domain
-  static const String _fallbackUrl =
-      'https://github.com/droidment/clevervb'; // Fallback to repo
+  static const String _baseUrl = 'https://clevergames.web.app';
 
   // ==================== GAME INVITE LINKS ====================
 
   /// Generate a deep link for a game
   String generateGameInviteLink(String gameId) {
-    return '$_baseUrl/game/$gameId';
+    return '$_baseUrl/#/game/$gameId';
   }
 
   /// Generate a shareable message for a game invite
