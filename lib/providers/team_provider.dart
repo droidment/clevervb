@@ -113,6 +113,7 @@ class TeamNotifier extends _$TeamNotifier {
     String? description,
     bool isPublic = true,
     int? maxMembers,
+    bool onlyOrganizerCreatesGames = false,
   }) async {
     state = const AsyncValue.loading();
 
@@ -123,6 +124,7 @@ class TeamNotifier extends _$TeamNotifier {
         description: description,
         isPublic: isPublic,
         maxMembers: maxMembers ?? 8, // Use 8 as default if null
+        onlyOrganizerCreatesGames: onlyOrganizerCreatesGames,
       );
 
       state = AsyncValue.data(team);

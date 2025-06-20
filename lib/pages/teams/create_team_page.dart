@@ -19,6 +19,7 @@ class _CreateTeamPageState extends ConsumerState<CreateTeamPage> {
   String _selectedSport = SportType.volleyball.name;
   bool _isPublic = true;
   bool _hasMaxMembers = false;
+  bool _onlyOrganizerCreatesGames = false;
   bool _isLoading = false;
 
   @override
@@ -49,6 +50,7 @@ class _CreateTeamPageState extends ConsumerState<CreateTeamPage> {
             _hasMaxMembers && _maxMembersController.text.isNotEmpty
                 ? int.parse(_maxMembersController.text)
                 : null,
+        onlyOrganizerCreatesGames: _onlyOrganizerCreatesGames,
       );
 
       if (team != null && mounted) {
@@ -296,6 +298,18 @@ class _CreateTeamPageState extends ConsumerState<CreateTeamPage> {
                         },
                       ),
                     ],
+
+                    // Only organizer schedule toggle
+                    SwitchListTile(
+                      title: const Text('Only organizer can schedule games'),
+                      subtitle: const Text(
+                        'Members will not be able to create games',
+                      ),
+                      value: _onlyOrganizerCreatesGames,
+                      onChanged: (value) {
+                        setState(() => _onlyOrganizerCreatesGames = value);
+                      },
+                    ),
                   ],
                 ),
               ),

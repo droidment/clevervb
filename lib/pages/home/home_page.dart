@@ -8,6 +8,7 @@ import '../organizer/organizer_dashboard_page.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/game_service.dart';
 import '../../services/auth_service.dart';
+import '../game_detail_page.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -22,12 +23,14 @@ class _HomePageState extends ConsumerState<HomePage>
   final GameService _gameService = GameService();
   final AuthService _authService = AuthService();
   bool _hasOrganizedGames = false;
+  bool _handledDeepLink = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _checkOrganizerStatus();
+    _handleInitialDeepLink();
   }
 
   @override
@@ -90,6 +93,27 @@ class _HomePageState extends ConsumerState<HomePage>
     } else {
       print('❌ No user logged in');
     }
+  }
+
+  void _handleInitialDeepLink() async {
+    if (_handledDeepLink) return;
+
+    final frag = Uri.base.fragment; // part after #
+    if (frag.startsWith('/game/')) {
+      final gameId = frag.split('/').last;
+      try {
+        final game = await _gameService.getGame(gameId);
+        if (!mounted) return;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (context) => GameDetailPage(game: game)),
+          );
+        });
+      } catch (e) {
+        // ignore or show toast
+      }
+    }
+    _handledDeepLink = true;
   }
 
   List<Widget> get _pages {

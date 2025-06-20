@@ -20,13 +20,17 @@ class Team {
   @JsonKey(name: 'updated_at')
   final DateTime updatedAt;
 
+  // New flag: only organizer can schedule games
+  @JsonKey(name: 'only_organizer_creates_games')
+  final bool onlyOrganizerCreatesGames;
+
   // Additional computed fields
   @JsonKey(includeFromJson: false, includeToJson: false)
   final int? memberCount;
-  
+
   @JsonKey(includeFromJson: false, includeToJson: false)
   final String? organizerName;
-  
+
   @JsonKey(includeFromJson: false, includeToJson: false)
   final String? organizerAvatarUrl;
 
@@ -43,6 +47,7 @@ class Team {
     this.memberCount,
     this.organizerName,
     this.organizerAvatarUrl,
+    this.onlyOrganizerCreatesGames = false,
   });
 
   factory Team.fromJson(Map<String, dynamic> json) => _$TeamFromJson(json);
@@ -61,6 +66,7 @@ class Team {
     int? memberCount,
     String? organizerName,
     String? organizerAvatarUrl,
+    bool? onlyOrganizerCreatesGames,
   }) {
     return Team(
       id: id ?? this.id,
@@ -75,6 +81,8 @@ class Team {
       memberCount: memberCount ?? this.memberCount,
       organizerName: organizerName ?? this.organizerName,
       organizerAvatarUrl: organizerAvatarUrl ?? this.organizerAvatarUrl,
+      onlyOrganizerCreatesGames:
+          onlyOrganizerCreatesGames ?? this.onlyOrganizerCreatesGames,
     );
   }
 
@@ -94,9 +102,10 @@ class Team {
 
   // Helper getters
   bool get hasMaxMembers => maxMembers != null;
-  bool get isFull => hasMaxMembers && memberCount != null && memberCount! >= maxMembers!;
+  bool get isFull =>
+      hasMaxMembers && memberCount != null && memberCount! >= maxMembers!;
   bool get hasDescription => description != null && description!.isNotEmpty;
-  
+
   String get displaySportType {
     return sportType.substring(0, 1).toUpperCase() + sportType.substring(1);
   }
@@ -115,10 +124,10 @@ class TeamMember {
   // User details (populated from joins)
   @JsonKey(includeFromJson: false, includeToJson: false)
   final String? fullName;
-  
+
   @JsonKey(includeFromJson: false, includeToJson: false)
   final String? email;
-  
+
   @JsonKey(includeFromJson: false, includeToJson: false)
   final String? avatarUrl;
 
@@ -132,7 +141,8 @@ class TeamMember {
     this.avatarUrl,
   });
 
-  factory TeamMember.fromJson(Map<String, dynamic> json) => _$TeamMemberFromJson(json);
+  factory TeamMember.fromJson(Map<String, dynamic> json) =>
+      _$TeamMemberFromJson(json);
   Map<String, dynamic> toJson() => _$TeamMemberToJson(this);
 
   TeamMember copyWith({
@@ -158,9 +168,9 @@ class TeamMember {
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
-    return other is TeamMember && 
-           other.teamId == teamId && 
-           other.userId == userId;
+    return other is TeamMember &&
+        other.teamId == teamId &&
+        other.userId == userId;
   }
 
   @override
@@ -195,7 +205,7 @@ class TeamInvitation {
   // Additional computed fields
   @JsonKey(includeFromJson: false, includeToJson: false)
   final String? teamName;
-  
+
   @JsonKey(includeFromJson: false, includeToJson: false)
   final String? inviterName;
 
@@ -212,7 +222,8 @@ class TeamInvitation {
     this.inviterName,
   });
 
-  factory TeamInvitation.fromJson(Map<String, dynamic> json) => _$TeamInvitationFromJson(json);
+  factory TeamInvitation.fromJson(Map<String, dynamic> json) =>
+      _$TeamInvitationFromJson(json);
   Map<String, dynamic> toJson() => _$TeamInvitationToJson(this);
 
   TeamInvitation copyWith({
@@ -293,5 +304,6 @@ enum SportType {
     return name.substring(0, 1).toUpperCase() + name.substring(1);
   }
 
-  static List<String> get allValues => SportType.values.map((e) => e.name).toList();
-} 
+  static List<String> get allValues =>
+      SportType.values.map((e) => e.name).toList();
+}

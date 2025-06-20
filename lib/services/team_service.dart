@@ -22,7 +22,8 @@ class TeamService {
     required String sportType,
     String? description,
     bool isPublic = true,
-    int maxMembers = 8, // Default to 8 players to match database default
+    int maxMembers = 8, // Default to 8 players
+    bool onlyOrganizerCreatesGames = false,
   }) async {
     try {
       _logger.i('Creating team: $name');
@@ -82,7 +83,8 @@ class TeamService {
         'organizer_id': finalUserId,
         'is_public': isPublic,
         'max_members': maxMembers,
-        'max_players': maxMembers, // Also set the original column
+        'max_players': maxMembers,
+        'only_organizer_creates_games': onlyOrganizerCreatesGames,
         'created_at': now.toIso8601String(),
         'updated_at': now.toIso8601String(),
       });
@@ -137,6 +139,7 @@ class TeamService {
     String? description,
     bool? isPublic,
     int? maxMembers,
+    bool? onlyOrganizerCreatesGames,
   }) async {
     try {
       final user = _supabase.auth.currentUser;
@@ -162,6 +165,9 @@ class TeamService {
       if (maxMembers != null) {
         updateData['max_members'] = maxMembers;
         updateData['max_players'] = maxMembers; // Keep both columns in sync
+      }
+      if (onlyOrganizerCreatesGames != null) {
+        updateData['only_organizer_creates_games'] = onlyOrganizerCreatesGames;
       }
 
       await _supabase.from('st_teams').update(updateData).eq('id', teamId);
@@ -675,6 +681,8 @@ class TeamService {
       memberCount: memberCount,
       organizerName: organizer?['full_name'],
       organizerAvatarUrl: organizer?['avatar_url'],
+      onlyOrganizerCreatesGames:
+          response['only_organizer_creates_games'] ?? false,
     );
   }
 

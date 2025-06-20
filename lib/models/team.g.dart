@@ -16,6 +16,8 @@ Team _$TeamFromJson(Map<String, dynamic> json) => Team(
   maxMembers: (json['max_members'] as num?)?.toInt(),
   createdAt: DateTime.parse(json['created_at'] as String),
   updatedAt: DateTime.parse(json['updated_at'] as String),
+  onlyOrganizerCreatesGames:
+      json['only_organizer_creates_games'] as bool? ?? false,
 );
 
 Map<String, dynamic> _$TeamToJson(Team instance) => <String, dynamic>{
@@ -28,6 +30,7 @@ Map<String, dynamic> _$TeamToJson(Team instance) => <String, dynamic>{
   'max_members': instance.maxMembers,
   'created_at': instance.createdAt.toIso8601String(),
   'updated_at': instance.updatedAt.toIso8601String(),
+  'only_organizer_creates_games': instance.onlyOrganizerCreatesGames,
 };
 
 TeamMember _$TeamMemberFromJson(Map<String, dynamic> json) => TeamMember(

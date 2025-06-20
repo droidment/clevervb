@@ -8,6 +8,8 @@ import '../games/game_schedule_page.dart';
 import 'package:intl/intl.dart';
 import '../../services/team_service.dart';
 import '../game_detail_page.dart';
+import '../../providers/profile_provider.dart';
+import '../../services/deep_link_service.dart';
 
 // Helper function to delete team
 Future<void> _deleteTeam(
@@ -115,44 +117,74 @@ class TeamDetailPage extends ConsumerWidget {
               title: Text(team.name),
               backgroundColor: Theme.of(context).colorScheme.inversePrimary,
               actions: [
-                IconButton(
-                  icon: const Icon(Icons.add),
-                  onPressed: () async {
-                    final result = await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => GameSchedulePage(teamId: teamId),
-                      ),
+                Builder(
+                  builder: (context) {
+                    final currentProfileAsync = ref.watch(
+                      currentUserProfileProvider,
                     );
-                    if (result == true) {
-                      // Refresh team data if game was created
-                      ref.invalidate(teamProvider(teamId));
-                    }
-                  },
-                  tooltip: 'Schedule Game',
-                ),
-                PopupMenuButton<String>(
-                  onSelected: (value) {
-                    if (value == 'delete') {
-                      _deleteTeam(context, ref, team, teamId);
-                    }
-                  },
-                  itemBuilder:
-                      (context) => [
-                        const PopupMenuItem(
-                          value: 'delete',
-                          child: Row(
-                            children: [
-                              Icon(Icons.delete, color: Colors.red),
-                              SizedBox(width: 8),
-                              Text(
-                                'Delete Team',
-                                style: TextStyle(color: Colors.red),
+                    final stUserId = currentProfileAsync.maybeWhen(
+                      data: (profile) => profile?.id,
+                      orElse: () => null,
+                    );
+                    final isOrganizer = team.organizerId == stUserId;
+                    final canCreate =
+                        !team.onlyOrganizerCreatesGames || isOrganizer;
+                    return canCreate
+                        ? IconButton(
+                          icon: const Icon(Icons.add),
+                          onPressed: () async {
+                            final result = await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder:
+                                    (context) =>
+                                        GameSchedulePage(teamId: teamId),
                               ),
-                            ],
-                          ),
-                        ),
-                      ],
+                            );
+                            if (result == true) {
+                              ref.invalidate(teamProvider(teamId));
+                            }
+                          },
+                          tooltip: 'Schedule Game',
+                        )
+                        : const SizedBox.shrink();
+                  },
+                ),
+                Builder(
+                  builder: (context) {
+                    final currentProfileAsync = ref.watch(
+                      currentUserProfileProvider,
+                    );
+                    final stUserId = currentProfileAsync.maybeWhen(
+                      data: (p) => p?.id,
+                      orElse: () => null,
+                    );
+                    final isOrganizer = team.organizerId == stUserId;
+                    if (!isOrganizer) return const SizedBox.shrink();
+                    return PopupMenuButton<String>(
+                      onSelected: (value) {
+                        if (value == 'delete') {
+                          _deleteTeam(context, ref, team, teamId);
+                        }
+                      },
+                      itemBuilder:
+                          (context) => [
+                            const PopupMenuItem(
+                              value: 'delete',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.delete, color: Colors.red),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'Delete Team',
+                                    style: TextStyle(color: Colors.red),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                    );
+                  },
                 ),
               ],
             ),
@@ -659,9 +691,7 @@ class _TeamGamesSection extends ConsumerWidget {
                         ),
                       )
                     else
-                      ...upcomingGames
-                          .map((g) => _GameListItem(game: g))
-                          ,
+                      ...upcomingGames.map((g) => _GameListItem(game: g)),
 
                     if (pastGames.isNotEmpty) ...[
                       const SizedBox(height: 12),
@@ -924,10 +954,24 @@ class _GameListItem extends ConsumerWidget {
                 ),
               ),
 
-              // Time until game and RSVP info
+              // Time until game, share, RSVP info
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
+                  // Share button
+                  IconButton(
+                    icon: Icon(
+                      Icons.share,
+                      size: 16,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    tooltip: 'Share Game',
+                    onPressed: () async {
+                      await DeepLinkService().shareGameInvite(game.id);
+                    },
+                  ),
                   Text(
                     timeText,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(

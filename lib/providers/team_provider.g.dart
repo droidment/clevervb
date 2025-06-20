@@ -927,7 +927,7 @@ class _InvitationProviderElement
   String get invitationId => (origin as InvitationProvider).invitationId;
 }
 
-String _$teamNotifierHash() => r'98b24a365f1e22dffb64993886ae12d1d004886a';
+String _$teamNotifierHash() => r'736552ea2f48141bad7990fa2ce8fb88c63587e7';
 
 /// State notifier for team operations
 ///
