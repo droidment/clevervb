@@ -512,7 +512,8 @@ class TeamService {
             joined_at,
             st_teams!inner(
               *,
-              st_users!st_teams_organizer_id_fkey(full_name, avatar_url)
+              st_users!st_teams_organizer_id_fkey(full_name, avatar_url),
+              st_team_members(count)
             )
           ''')
           .eq('user_id', userId)
