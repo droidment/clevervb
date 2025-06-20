@@ -505,6 +505,7 @@ class TeamService {
   /// Get user's teams (where user is a member)
   Future<List<Team>> getUserTeams(String userId) async {
     try {
+      // First fetch basic team info joined through membership relation
       final response = await _supabase
           .from('st_team_members')
           .select('''
@@ -519,10 +520,36 @@ class TeamService {
           .eq('user_id', userId)
           .order('joined_at', ascending: false);
 
-      return response.map((memberData) {
-        final teamData = memberData['st_teams'];
-        return _mapTeamFromResponse(teamData);
-      }).toList();
+      final teams =
+          response.map((memberData) {
+            final teamData = memberData['st_teams'];
+            return _mapTeamFromResponse(teamData);
+          }).toList();
+
+      // Fetch member counts in bulk to ensure accuracy (handles cases where
+      // nested count is affected by RLS quirks)
+      if (teams.isNotEmpty) {
+        final ids = teams.map((t) => t.id).toList();
+        final countRows = await _supabase
+            .from('st_team_members')
+            .select('team_id')
+            .inFilter('team_id', ids);
+
+        final Map<String, int> countMap = {};
+        for (final row in countRows) {
+          final tid = row['team_id'] as String;
+          countMap[tid] = (countMap[tid] ?? 0) + 1;
+        }
+
+        // Apply counts
+        for (var i = 0; i < teams.length; i++) {
+          final t = teams[i];
+          final c = countMap[t.id] ?? t.memberCount;
+          teams[i] = t.copyWith(memberCount: c);
+        }
+      }
+
+      return teams;
     } catch (e) {
       _logger.e('Error getting user teams: $e');
       rethrow;
