@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../models/game.dart';
 import '../services/game_service.dart';
 import '../providers/game_provider.dart';
+import '../services/auth_service.dart';
 
 class GameDetailPage extends ConsumerStatefulWidget {
   final Game game;
@@ -20,6 +21,12 @@ class _GameDetailPageState extends ConsumerState<GameDetailPage> {
   List<Map<String, dynamic>> _rsvpList = [];
   bool _loadingRsvps = true;
 
+  // Tracks whether the current user already RSVP'd "Going"
+  bool _hasRsvpedYes = false;
+
+  // Tracks whether the current user has any RSVP (yes/no/maybe)
+  bool _hasUserRsvp = false;
+
   @override
   void initState() {
     super.initState();
@@ -30,9 +37,19 @@ class _GameDetailPageState extends ConsumerState<GameDetailPage> {
     try {
       setState(() => _loadingRsvps = true);
       final rsvps = await _gameService.getGameRsvps(widget.game.id);
+
+      // Determine if the current user has already RSVP'd "yes"
+      final authService = AuthService();
+      final currentUserId = await authService.getCurrentUserId();
+
       setState(() {
         _rsvpList = rsvps;
         _loadingRsvps = false;
+        _hasRsvpedYes = rsvps.any(
+          (rsvp) =>
+              rsvp['user_id'] == currentUserId && rsvp['response'] == 'yes',
+        );
+        _hasUserRsvp = rsvps.any((rsvp) => rsvp['user_id'] == currentUserId);
       });
     } catch (e) {
       setState(() => _loadingRsvps = false);
@@ -166,18 +183,12 @@ class _GameDetailPageState extends ConsumerState<GameDetailPage> {
         slivers: [
           // App Bar with Game Header
           SliverAppBar(
-            expandedHeight: 200,
+            expandedHeight: 180,
             pinned: true,
             backgroundColor:
                 isGameFinished ? Colors.grey[600] : theme.primaryColor,
             flexibleSpace: FlexibleSpaceBar(
-              title: Text(
-                widget.game.title,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              collapseMode: CollapseMode.parallax,
               background: Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
@@ -192,41 +203,56 @@ class _GameDetailPageState extends ConsumerState<GameDetailPage> {
                   ),
                 ),
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 100, 16, 20),
+                  padding: const EdgeInsets.fromLTRB(16, 90, 16, 16),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.end,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Icon(
                             isGameFinished
                                 ? Icons.check_circle
                                 : _getSportIcon(widget.game.sport),
                             color: Colors.white,
-                            size: 32,
+                            size: 36,
                           ),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
                               children: [
+                                // Game title (primary)
+                                Text(
+                                  widget.game.title,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 4),
+                                // Sport or status label
                                 Text(
                                   isGameFinished
                                       ? 'GAME COMPLETED'
                                       : widget.game.sport.toUpperCase(),
                                   style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 16,
+                                    color: Colors.white70,
+                                    fontSize: 14,
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
                                 if (widget.game.teamName != null)
                                   Text(
                                     widget.game.teamName!,
-                                    style: TextStyle(
-                                      color: Colors.white.withOpacity(0.9),
-                                      fontSize: 14,
+                                    style: const TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 12,
                                     ),
                                   ),
                               ],
@@ -248,18 +274,18 @@ class _GameDetailPageState extends ConsumerState<GameDetailPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Combined Game Information Card
-                  _buildCombinedGameInfoCard(
+                  // Participants section (visible first)
+                  _buildParticipantsCard(theme),
+
+                  const SizedBox(height: 16),
+
+                  // Collapsible game details to save space
+                  _buildCollapsibleDetails(
                     theme,
                     dateFormat,
                     timeFormat,
                     isGameFinished,
                   ),
-
-                  const SizedBox(height: 16),
-
-                  // Participants Card
-                  _buildParticipantsCard(),
 
                   // Check-in info
                   if (widget.game.canCheckIn) ...[
@@ -589,191 +615,67 @@ class _GameDetailPageState extends ConsumerState<GameDetailPage> {
     );
   }
 
-  Widget _buildParticipantsCard() {
-    return _buildInfoCard(
-      icon: Icons.people,
-      title: 'Participants (${_rsvpList.length})',
-      child:
-          _loadingRsvps
-              ? const Padding(
-                padding: EdgeInsets.all(16.0),
-                child: Center(child: CircularProgressIndicator()),
-              )
-              : _rsvpList.isEmpty
-              ? Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.grey[50],
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.grey[300]!),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.person_add, color: Colors.grey[400], size: 20),
-                    const SizedBox(width: 8),
-                    Text(
-                      'No one has signed up yet',
-                      style: TextStyle(
-                        color: Colors.grey[600],
-                        fontStyle: FontStyle.italic,
-                      ),
-                    ),
-                  ],
-                ),
-              )
-              : ListView.separated(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: _rsvpList.length,
-                separatorBuilder:
-                    (context, index) =>
-                        Divider(height: 1, color: Colors.grey[200]),
-                itemBuilder: (context, index) {
-                  final rsvp = _rsvpList[index];
-                  final user = rsvp['st_users'];
-                  final response = rsvp['response'] as String;
-                  final guestCount = rsvp['guest_count'] as int? ?? 0;
+  Widget _buildParticipantsCard(ThemeData theme) {
+    if (_loadingRsvps) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
-                  return _buildParticipantTile(
-                    user: user,
-                    response: response,
-                    guestCount: guestCount,
-                  );
-                },
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Participants (${_rsvpList.length})',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
               ),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children:
+                  _rsvpList.map((rsvp) {
+                    final name =
+                        rsvp['st_users']?['full_name'] ??
+                        rsvp['st_users']?['email'] ??
+                        'Player';
+                    return Chip(
+                      label: Text(name, overflow: TextOverflow.ellipsis),
+                      avatar: const Icon(Icons.person, size: 18),
+                    );
+                  }).toList(),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
-  Widget _buildParticipantTile({
-    required Map<String, dynamic> user,
-    required String response,
-    required int guestCount,
-  }) {
-    final theme = Theme.of(context);
-    final userName = user['full_name'] as String? ?? 'Unknown User';
-    final userEmail = user['email'] as String? ?? '';
-
-    Color responseColor;
-    IconData responseIcon;
-    String responseText;
-
-    switch (response) {
-      case 'yes':
-        responseColor = Colors.green;
-        responseIcon = Icons.check_circle;
-        responseText = 'Going';
-        break;
-      case 'no':
-        responseColor = Colors.red;
-        responseIcon = Icons.cancel;
-        responseText = 'Not Going';
-        break;
-      case 'maybe':
-        responseColor = Colors.orange;
-        responseIcon = Icons.help;
-        responseText = 'Maybe';
-        break;
-      default:
-        responseColor = Colors.grey;
-        responseIcon = Icons.help_outline;
-        responseText = response;
-    }
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Row(
+  Widget _buildCollapsibleDetails(
+    ThemeData theme,
+    DateFormat dateFormat,
+    DateFormat timeFormat,
+    bool isGameFinished,
+  ) {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: ExpansionTile(
+        title: const Text('Game Details'),
+        initiallyExpanded: false,
         children: [
-          // User Avatar
-          CircleAvatar(
-            radius: 24,
-            backgroundColor: theme.colorScheme.primaryContainer,
-            backgroundImage:
-                user['avatar_url'] != null &&
-                        user['avatar_url'].toString().isNotEmpty
-                    ? NetworkImage(user['avatar_url'])
-                    : null,
-            child:
-                user['avatar_url'] == null ||
-                        user['avatar_url'].toString().isEmpty
-                    ? Text(
-                      userName.isNotEmpty ? userName[0].toUpperCase() : '?',
-                      style: TextStyle(
-                        color: theme.colorScheme.onPrimaryContainer,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                      ),
-                    )
-                    : null,
-          ),
-          const SizedBox(width: 16),
-
-          // User Info
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  userName,
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                if (userEmail.isNotEmpty)
-                  Text(
-                    userEmail,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: Colors.grey[600],
-                    ),
-                  ),
-                if (guestCount > 0) ...[
-                  const SizedBox(height: 4),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.blue[50],
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.blue[200]!),
-                    ),
-                    child: Text(
-                      '+$guestCount guest${guestCount > 1 ? 's' : ''}',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.blue[700],
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-
-          // RSVP Status
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: responseColor.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: responseColor.withOpacity(0.3)),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(responseIcon, size: 16, color: responseColor),
-                const SizedBox(width: 6),
-                Text(
-                  responseText,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: responseColor,
-                  ),
-                ),
-              ],
+          Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: _buildCombinedGameInfoCard(
+              theme,
+              dateFormat,
+              timeFormat,
+              isGameFinished,
             ),
           ),
         ],
@@ -826,6 +728,33 @@ class _GameDetailPageState extends ConsumerState<GameDetailPage> {
       );
     }
 
+    // Show only Cancel RSVP if user already RSVP'd yes OR RSVP window closed
+    if (_hasRsvpedYes || (!widget.game.isRsvpOpen && _hasUserRsvp)) {
+      return SizedBox(
+        height: 56,
+        child: TextButton.icon(
+          onPressed: _cancelRsvp,
+          icon: const Icon(Icons.cancel_outlined, size: 18),
+          label: const Text(
+            'Cancel RSVP',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          ),
+          style: TextButton.styleFrom(
+            foregroundColor: Colors.red.shade600,
+            backgroundColor: theme.colorScheme.surfaceContainerHighest,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // If RSVP is closed and user has no RSVP, hide action buttons entirely
+    if (!widget.game.isRsvpOpen && !_hasUserRsvp) {
+      return const SizedBox.shrink();
+    }
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -859,7 +788,7 @@ class _GameDetailPageState extends ConsumerState<GameDetailPage> {
                 height: 56,
                 child: ElevatedButton.icon(
                   onPressed:
-                      widget.game.isFull
+                      (widget.game.isFull || _hasRsvpedYes)
                           ? null
                           : () => _updateRsvp(RsvpResponse.yes),
                   icon: Icon(
