@@ -387,6 +387,8 @@ class _CreateTeamPageState extends ConsumerState<CreateTeamPage> {
         return Icons.sports_tennis; // Close enough
       case SportType.badminton:
         return Icons.sports_tennis; // Close enough
+      case SportType.cricket:
+        return Icons.sports_cricket;
     }
   }
 }

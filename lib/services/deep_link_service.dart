@@ -355,6 +355,8 @@ Tap to join: $link
         return '🏸';
       case 'soccer':
         return '⚽';
+      case 'cricket':
+        return '🏏';
       default:
         return '🏅';
     }

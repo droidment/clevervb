@@ -716,6 +716,8 @@ class _GameDetailPageState extends ConsumerState<GameDetailPage> {
         return Icons.sports_tennis;
       case 'soccer':
         return Icons.sports_soccer;
+      case 'cricket':
+        return Icons.sports_cricket;
       default:
         return Icons.sports;
     }

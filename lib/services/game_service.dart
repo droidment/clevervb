@@ -630,6 +630,8 @@ class GameService {
         return 4;
       case 'soccer':
         return 22;
+      case 'cricket':
+        return 22; // 11-a-side
       default:
         return Env.defaultMaxPlayers;
     }

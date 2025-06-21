@@ -476,6 +476,8 @@ class _TeamDiscoveryCard extends ConsumerWidget {
         return Icons.sports_tennis;
       case 'soccer':
         return Icons.sports_soccer;
+      case 'cricket':
+        return Icons.sports_cricket;
       case 'pickleball':
         return Icons.sports_tennis;
       case 'badminton':

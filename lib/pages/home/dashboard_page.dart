@@ -639,6 +639,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         return Icons.sports_tennis;
       case 'soccer':
         return Icons.sports_soccer;
+      case 'cricket':
+        return Icons.sports_cricket;
       case 'pickleball':
         return Icons.sports_tennis; // Using tennis icon for pickleball
       default:

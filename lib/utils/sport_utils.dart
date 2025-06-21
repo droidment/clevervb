@@ -20,6 +20,8 @@ class SportUtils {
         return Colors.purple; // 🏸
       case 'soccer':
         return Colors.teal; // ⚽
+      case 'cricket':
+        return Colors.lightGreen; // 🏏
       default:
         return Colors.grey;
     }
