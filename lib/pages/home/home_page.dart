@@ -98,9 +98,25 @@ class _HomePageState extends ConsumerState<HomePage>
   void _handleInitialDeepLink() async {
     if (_handledDeepLink) return;
 
-    final frag = Uri.base.fragment; // part after #
-    if (frag.startsWith('/game/')) {
-      final gameId = frag.split('/').last;
+    final uri = Uri.base;
+    String? gameId;
+
+    // --- 1️⃣ Try to extract from hash fragment (e.g. #/game/<id> or #game/<id>) ---
+    final frag = uri.fragment; // Part after #
+    if (frag.isNotEmpty) {
+      final match = RegExp(r'\/?game\/([A-Za-z0-9\-]+)').firstMatch(frag);
+      if (match != null) {
+        gameId = match.group(1);
+      }
+    }
+
+    // --- 2️⃣ Fallback: check query parameter (?game=<id>) so links survive OAuth redirects ---
+    if (gameId == null && uri.queryParameters.containsKey('game')) {
+      gameId = uri.queryParameters['game'];
+    }
+
+    // If a gameId was found, navigate to the GameDetailPage
+    if (gameId != null && gameId.isNotEmpty) {
       try {
         final game = await _gameService.getGame(gameId);
         if (!mounted) return;
@@ -110,9 +126,15 @@ class _HomePageState extends ConsumerState<HomePage>
           );
         });
       } catch (e) {
-        // ignore or show toast
+        // If something goes wrong, you may want to show a toast/snackbar for feedback
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Unable to open game link: $e')),
+          );
+        }
       }
     }
+
     _handledDeepLink = true;
   }
 
